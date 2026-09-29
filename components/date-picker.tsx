@@ -41,7 +41,7 @@ export function DatePicker({ value, onChange, ariaLabel }: DatePickerProps) {
         <Button
           type="button"
           variant="outline"
-          className="date-picker-trigger w-full justify-start"
+          className="w-full justify-start"
           aria-label={ariaLabel}
         >
           <CalendarIcon data-icon="inline-start" />
