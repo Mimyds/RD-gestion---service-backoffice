@@ -45,19 +45,19 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="login-page">
-      <Card className="login-card">
-        <CardHeader>
-          <Image className="login-logo" src="/rd-logo.png" alt="RD Gestion & Services" width={260} height={51} priority />
-          <CardTitle><h1>Nouveau mot de passe</h1></CardTitle>
-          <CardDescription>Choisissez un nouveau mot de passe pour votre compte.</CardDescription>
+    <main className="grid min-h-screen place-items-center bg-background p-5">
+      <Card className="w-full max-w-[420px] gap-0 overflow-hidden border-border p-0 shadow-xl">
+        <CardHeader className="gap-2 px-8 pt-8 pb-0">
+          <Image className="mb-7 h-auto w-[260px] max-w-full" src="/rd-logo.png" alt="RD Gestion & Services" width={260} height={51} priority />
+          <CardTitle><h1 className="m-0 text-[32px] font-medium text-foreground">Nouveau mot de passe</h1></CardTitle>
+          <CardDescription className="text-base">Choisissez un nouveau mot de passe pour votre compte.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-8 pt-7 pb-7">
           <form onSubmit={submit}>
-            <FieldGroup>
+            <FieldGroup className="gap-5">
               <Field>
                 <FieldLabel htmlFor="new-password">Nouveau mot de passe</FieldLabel>
-                <InputGroup>
+                <InputGroup className="h-11">
                   <InputGroupInput id="new-password" type={showPassword ? "text" : "password"} required minLength={6} autoComplete="new-password" disabled={!ready || busy} value={password} onChange={(event) => setPassword(event.target.value)} />
                   <InputGroupAddon align="inline-end">
                     <InputGroupButton size="icon-sm" aria-label={showPassword ? "Masquer les mots de passe" : "Afficher les mots de passe"} aria-pressed={showPassword} onClick={() => setShowPassword((value) => !value)}>
@@ -68,14 +68,14 @@ export default function ResetPasswordPage() {
               </Field>
               <Field>
                 <FieldLabel htmlFor="password-confirmation">Confirmer le mot de passe</FieldLabel>
-                <InputGroup>
+                <InputGroup className="h-11">
                   <InputGroupInput id="password-confirmation" type={showPassword ? "text" : "password"} required minLength={6} autoComplete="new-password" disabled={!ready || busy} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
                 </InputGroup>
               </Field>
-              <Button type="submit" size="lg" disabled={!ready || busy}>{busy ? "Modification…" : "Modifier le mot de passe"}</Button>
+              <Button className="h-11 w-full text-base" type="submit" size="lg" disabled={!ready || busy}>{busy ? "Modification…" : "Modifier le mot de passe"}</Button>
             </FieldGroup>
           </form>
-          {message && <p role="status" className="login-message">{message}</p>}
+          {message && <p role="status" className="mt-4 text-sm text-muted-foreground">{message}</p>}
         </CardContent>
       </Card>
     </main>
