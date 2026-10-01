@@ -5,7 +5,6 @@ import type { ClientRecord } from "@/components/client-manager";
 import { DatePicker } from "@/components/date-picker";
 import { ErrorBanner } from "@/components/error-banner";
 import { clientAddress, clientName } from "@/lib/clients";
-import { COMPANY_ADDRESS, COMPANY_EMAIL, COMPANY_NAME, COMPANY_PHONE } from "@/lib/company";
 import { blankLine, type Invoice, type InvoiceLine, money, total } from "@/lib/invoices";
 
 type ClientDraft = { type: "entreprise" | "particulier"; companyName: string; firstName: string; lastName: string; email: string; phone: string; addressLine1: string; addressLine2: string; postalCode: string; city: string; country: string };
@@ -60,14 +59,7 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
 </label>
 </div>
 <h3>Votre entreprise</h3>
-<div className={tw.formGrid}>
-<label>Nom ou raison sociale<input value={COMPANY_NAME} readOnly/>
-</label>
-<label>Adresse<textarea value={COMPANY_ADDRESS} readOnly/>
-</label>
-</div>
-<label>E-mail de l’entreprise<input type="email" value={COMPANY_EMAIL} readOnly/></label>
-<label>Téléphone de l’entreprise<input value={COMPANY_PHONE} readOnly/></label>
+<div className="mb-4 grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground [&_span]:whitespace-pre-line [&_strong]:text-foreground"><strong>{editor.issuer}</strong><span>{editor.issuerAddress}</span><span>{editor.issuerDetails}</span><small className="mt-1">{editor.status === "brouillon" ? "Ces informations se modifient dans Réglages et suivent les réglages tant que la facture est un brouillon." : "Informations figées au moment de l’envoi de la facture."}</small></div>
 <h3>Client</h3>
 <label>Choisir un client<select value={clientSelection} onChange={e => chooseClient(e.target.value)}>
 {clientSelection === LEGACY_CLIENT && <option value={LEGACY_CLIENT}>Client de cette facture (ancienne fiche)</option>}

@@ -13,7 +13,7 @@ Projet autonome Next.js App Router (TypeScript), avec Supabase Auth, Postgres et
 
 ### Correction des courriers
 
-Le module Courriers utilise LanguageTool. Sans configuration supplémentaire, la route serveur s’appuie sur l’API publique, adaptée uniquement aux essais manuels. En production, configurer une offre LanguageTool autorisant l’usage applicatif ou une instance auto-hébergée :
+Le module Courriers utilise LanguageTool. Sans configuration supplémentaire, la route serveur s’appuie sur l’API publique gratuite (limitée à environ 20 requêtes par minute et 20 Ko par requête), suffisante pour un usage ponctuel. Pour lever ces limites, configurer une offre LanguageTool Premium ou une instance auto-hébergée :
 
 ```dotenv
 LANGUAGETOOL_API_URL=https://votre-instance.example.com/v2/check
@@ -33,7 +33,7 @@ L'inscription e-mail et mot de passe peut exiger une confirmation par e-mail sel
 - Aperçu avec logo, mise en page imprimable A4, impression et téléchargement PDF.
 - Postgres avec RLS sur les utilisateurs, clients, factures et courriers (`user_id`), et numéro de facture unique par utilisateur.
 - Clients en colonnes structurées ; contenu flexible des factures et courriers dans `payload` JSONB.
-- Un modèle de facture et un modèle de courrier par utilisateur, enregistrés dans `public.users`.
+- Fenêtre **Réglages** (barre latérale) : raison sociale, adresse, contact, ville des courriers, coordonnées bancaires, mentions légales et pied de page, enregistrés dans `public.users`. Les brouillons suivent les réglages ; une facture envoyée ou payée conserve les informations en vigueur lors de son envoi.
 - Rédaction WYSIWYG des courriers, suggestions orthographiques et grammaticales, aperçu A4, impression et téléchargement PDF.
 
 ## Vérifications
@@ -48,7 +48,8 @@ Le modèle source juxtapose « TVA non applicable » et une ligne « TVA 20 % »
 
 - `app/page.tsx` : coquille (navigation, déconnexion, chargement des clients, bandeau d'erreur).
 - `components/invoice-*.tsx`, `letter-*.tsx`, `client-manager.tsx` : un module par domaine.
-- `lib/company.ts` : **source unique** des informations de l'entreprise émettrice (raison sociale, adresse, contact, coordonnées bancaires, mentions légales, pied de page). À modifier ici en cas de changement.
+- `lib/company.ts` : type des réglages de l'entreprise et valeurs par défaut (utilisées si un champ est vide en base).
+- `lib/settings.ts` : lecture et écriture des réglages dans `public.users`, instantané de l'émetteur copié sur les factures.
 - `lib/api.ts` : helpers partagés des routes API (authentification, erreurs JSON).
 
 Les routes `/api/*` renvoient un 401 JSON lorsque la session est absente (pas de redirection HTML).

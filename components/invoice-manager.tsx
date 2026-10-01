@@ -7,7 +7,8 @@ import { InvoicePaper } from "@/components/invoice-paper";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fileName, formatDate } from "@/lib/dates";
 import { downloadElementAsPdf } from "@/lib/download-pdf";
-import { blankInvoice, type Invoice, money, nextInvoiceNumber, total } from "@/lib/invoices";
+import type { CompanySettings } from "@/lib/company";
+import { blankInvoice, type Invoice, money, nextInvoiceNumber, total, withCurrentCompany } from "@/lib/invoices";
 import { printDocument } from "@/lib/print-document";
 import { cn } from "@/lib/utils";
 
@@ -35,8 +36,9 @@ const tw = {
 
 type ModelContext = { registerTool: (tool: object, options: { signal: AbortSignal }) => void | Promise<void> };
 
-export function InvoiceManager({ clients, error, onError, onClientsChanged }: {
+export function InvoiceManager({ clients, company, error, onError, onClientsChanged }: {
   clients: ClientRecord[];
+  company: CompanySettings;
   error: string;
   onError: (message: string) => void;
   onClientsChanged: () => Promise<void>;
@@ -50,7 +52,7 @@ export function InvoiceManager({ clients, error, onError, onClientsChanged }: {
   const refresh = useCallback(async () => { try { const response = await fetch("/api/invoices"); const data = await response.json(); if (!response.ok) throw Error(data.error); setInvoices(data.invoices); } catch { onError("Impossible de charger vos factures. Réessayez dans un instant."); } finally { setLoading(false); } }, [onError]);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  function start() { onError(""); setEditor({ ...blankInvoice(), number: nextInvoiceNumber(invoices) }); }
+  function start() { onError(""); setEditor({ ...blankInvoice(company), number: nextInvoiceNumber(invoices) }); }
   const startFromAssistant = useEffectEvent(start);
   useEffect(() => {
     const context = (document as Document & { modelContext?: ModelContext }).modelContext;
@@ -66,7 +68,7 @@ export function InvoiceManager({ clients, error, onError, onClientsChanged }: {
   const sentInvoices = invoices.filter(i => i.status === "envoyée"), paidInvoices = invoices.filter(i => i.status === "payée");
   const due = sentInvoices.reduce((s, i) => s + total(i), 0), paid = paidInvoices.reduce((s, i) => s + total(i), 0);
 
-  function editInvoice(invoice: Invoice) { onError(""); setEditor(invoice); setPreview(null); }
+  function editInvoice(invoice: Invoice) { onError(""); setEditor(withCurrentCompany(invoice, company)); setPreview(null); }
   async function saved() { setEditor(null); await Promise.all([refresh(), onClientsChanged()]); }
   async function status(i: Invoice, value: Invoice["status"]) { try { const r = await fetch("/api/invoices", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...i, status: value }) }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Le statut n’a pas pu être modifié."); } }
   async function remove(i: Invoice) { if (!confirm(`Supprimer la facture ${i.number} ?`)) return; try { const r = await fetch(`/api/invoices?id=${encodeURIComponent(i.id)}`, { method: "DELETE" }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Suppression impossible."); } }
@@ -177,7 +179,7 @@ export function InvoiceManager({ clients, error, onError, onClientsChanged }: {
 </button>
 </div>
 <div className={tw.previewScroll}>
-<InvoicePaper ref={invoicePaperRef} invoice={preview}/>
+<InvoicePaper ref={invoicePaperRef} invoice={withCurrentCompany(preview, company)}/>
 </div>
 </>}</DialogContent>
 </Dialog>

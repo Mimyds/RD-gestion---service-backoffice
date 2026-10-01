@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { Ref } from "react";
-import { DEFAULT_BANK_DETAILS, DEFAULT_INVOICE_FOOTER, DEFAULT_LEGAL_MENTIONS } from "@/lib/company";
+import { DEFAULT_COMPANY } from "@/lib/company";
 import { formatDate } from "@/lib/dates";
 import { type Invoice, lineTotal, money, subtotal, total } from "@/lib/invoices";
 import { cn } from "@/lib/utils";
@@ -51,7 +51,7 @@ export function InvoicePaper({ invoice, ref }: { invoice: Invoice; ref?: Ref<HTM
 <div className="mt-4 grid grid-cols-[41%_59%] items-start max-[700px]:grid-cols-1 max-[700px]:gap-4">
 <div className="m-0 px-2 pt-2 pr-3.5 text-[11px] text-[#315d79] [&_p]:whitespace-pre-line [&_p]:text-[11px] [&_p]:leading-[1.45] [&_strong]:uppercase">
 <strong>Coordonnées bancaires</strong>
-<p>{invoice.bankDetails || DEFAULT_BANK_DETAILS}</p>
+<p>{invoice.bankDetails || DEFAULT_COMPANY.bankDetails}</p>
 </div>
 <div className="m-0 w-full [&>div]:flex [&>div]:min-h-8 [&>div]:justify-between [&>div]:border [&>div]:border-b-0 [&>div]:border-[#d2d2d2] [&>div]:px-2.5 [&>div]:py-2 [&>div]:text-xs [&>div]:uppercase [&>div:last-child]:border-b">
 <div>
@@ -77,8 +77,8 @@ export function InvoicePaper({ invoice, ref }: { invoice: Invoice; ref?: Ref<HTM
 </div>
 </div>
 <div className="my-14 border-0 p-0 max-[700px]:my-9">
-<p className="text-[11px] leading-[1.4] whitespace-pre-line">{invoice.notes || DEFAULT_LEGAL_MENTIONS}</p>
+<p className="text-[11px] leading-[1.4] whitespace-pre-line">{invoice.notes || DEFAULT_COMPANY.legalMentions}</p>
 </div>
-<div className="mt-auto border-t border-[#6d9ab6] pt-2 text-center text-[9px] leading-[1.35] uppercase max-[700px]:mt-7">{DEFAULT_INVOICE_FOOTER}</div>
+<div className="mt-auto border-t border-[#6d9ab6] pt-2 text-center text-[9px] leading-[1.35] uppercase max-[700px]:mt-7 whitespace-pre-line">{invoice.footer || DEFAULT_COMPANY.footer}</div>
 </div>;
 }

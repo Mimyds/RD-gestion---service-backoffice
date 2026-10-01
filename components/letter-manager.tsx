@@ -15,7 +15,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { clientAddress, clientName } from "@/lib/clients";
-import { COMPANY_DETAILS, COMPANY_LETTER_CITY, COMPANY_POSTAL_CITY, COMPANY_STREET } from "@/lib/company";
+import { type CompanySettings, companyDetails } from "@/lib/company";
 import { fileName, formatDate, localDate } from "@/lib/dates";
 import { downloadElementAsPdf } from "@/lib/download-pdf";
 import { printDocument } from "@/lib/print-document";
@@ -86,12 +86,12 @@ function richTextNode(node: JSONContent, key: string): ReactNode {
   return <p key={key} className="my-4 min-h-[1.5em]">{children}</p>;
 }
 
-function LetterPaper({ letter }: { letter: Letter }) {
+function LetterPaper({ letter, company }: { letter: Letter; company: CompanySettings }) {
   return <article className="letter-print-root mx-auto min-h-[1123px] w-[794px] bg-white px-[76px] py-[72px] font-sans text-[15px] leading-7 text-[#0f172a] shadow-xl">
     <header className="mb-14 flex items-start justify-between gap-10">
       <div>
         <Image src="/logo-web.svg" alt="RD Gestion & Services" width={225} height={44} priority className="mb-4" style={{ width: "225px", height: "auto" }}/>
-        <p className="text-xs leading-5 whitespace-pre-line text-[#475569]">{`${COMPANY_STREET}\n${COMPANY_POSTAL_CITY}`}<br/>{COMPANY_DETAILS}</p>
+        <p className="text-xs leading-5 whitespace-pre-line text-[#475569]">{company.address}<br/>{companyDetails(company)}</p>
       </div>
       <div className="max-w-[310px] pt-16 text-left">
         <p className="font-semibold">{letter.recipient || "Destinataire"}</p>
@@ -100,14 +100,14 @@ function LetterPaper({ letter }: { letter: Letter }) {
     </header>
     <div className="mb-10 flex items-end justify-between gap-8">
       <div>{letter.reference ? <p><strong>Référence :</strong> {letter.reference}</p> : null}</div>
-      <p>{COMPANY_LETTER_CITY}, le {new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date(`${letter.date}T12:00:00`))}</p>
+      <p>{company.letterCity}, le {new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date(`${letter.date}T12:00:00`))}</p>
     </div>
     <p className="mb-8"><strong>Objet : {letter.subject || "Objet du courrier"}</strong></p>
     <section className="letter-rich-content min-h-[470px]">{richTextNode(letter.content || emptyContent, "letter")}</section>
   </article>;
 }
 
-export function LetterManager({ clients, error, onError }: { clients: ClientRecord[]; error: string; onError: (message: string) => void }) {
+export function LetterManager({ clients, company, error, onError }: { clients: ClientRecord[]; company: CompanySettings; error: string; onError: (message: string) => void }) {
   const [letters, setLetters] = useState<Letter[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -286,7 +286,7 @@ export function LetterManager({ clients, error, onError }: { clients: ClientReco
             <Button type="button" disabled={exporting} onClick={downloadPdf}>{exporting ? <LoaderCircle className="animate-spin" data-icon="inline-start"/> : <Download data-icon="inline-start"/>}{exporting ? "Création du PDF…" : "Télécharger en PDF"}</Button>
           </div>
           <div className="min-h-0 overflow-auto bg-slate-200 p-7 max-sm:p-2">
-            <div ref={letterPaperRef}><LetterPaper letter={preview}/></div>
+            <div ref={letterPaperRef}><LetterPaper letter={preview} company={company}/></div>
           </div>
         </> : null}
       </DialogContent>
