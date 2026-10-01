@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
     <main className="grid min-h-screen place-items-center bg-background p-5">
       <Card className="w-full max-w-[420px] gap-0 overflow-hidden border-border p-0 shadow-xl">
         <CardHeader className="gap-2 px-8 pt-8 pb-0">
-          <Image className="mb-7 h-auto w-[260px] max-w-full" src="/rd-logo.png" alt="RD Gestion & Services" width={260} height={51} priority />
+          <Image className="mb-7 h-auto w-[260px] max-w-full" src="/logo-web.svg" alt="RD Gestion & Services" width={260} height={51} priority />
           <CardTitle><h1 className="m-0 text-[32px] font-medium text-foreground">Nouveau mot de passe</h1></CardTitle>
           <CardDescription className="text-base">Choisissez un nouveau mot de passe pour votre compte.</CardDescription>
         </CardHeader>

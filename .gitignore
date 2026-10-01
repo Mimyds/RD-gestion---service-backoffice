@@ -5,3 +5,5 @@ node_modules
 .env*.local
 *.tsbuildinfo
 supabase/.temp/
+tmp/
+supabase/.branches/
