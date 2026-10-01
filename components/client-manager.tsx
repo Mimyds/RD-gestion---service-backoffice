@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Building2, Mail, Pencil, Phone, Plus, Search, Trash2, UserRound, UsersRound } from "lucide-react"
+import { type ReactNode, useMemo, useState } from "react"
+import { Building2, Mail, MapPin, Pencil, Phone, Plus, Search, StickyNote, Trash2, UserRound, UsersRound } from "lucide-react"
 
 import { ErrorBanner } from "@/components/error-banner"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { clientAddress } from "@/lib/clients"
 
 export type ClientRecord = {
   id: string
@@ -85,6 +86,20 @@ const draftOf = (client: ClientRecord): ClientDraft => ({
   notes: client.notes || "",
 })
 
+function DetailRow({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-3 border-t py-3.5 first:border-t-0 [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-ring">
+      {icon}
+      <div className="min-w-0">
+        <div className="mb-0.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{label}</div>
+        <div className="text-sm break-words whitespace-pre-line text-foreground">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+const missing = <span className="text-muted-foreground">Non renseigné</span>
+
 export function ClientManager({
   clients,
   loading,
@@ -100,6 +115,9 @@ export function ClientManager({
 }) {
   const [query, setQuery] = useState("")
   const [editor, setEditor] = useState<ClientDraft | null>(null)
+  // Looked up from the list so the details reflect the latest data after an edit.
+  const [detailsId, setDetailsId] = useState<string | null>(null)
+  const details = clients.find((client) => client.id === detailsId) ?? null
   const [saving, setSaving] = useState(false)
   const shown = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -136,6 +154,12 @@ export function ClientManager({
     }
   }
 
+  function editClient(client: ClientRecord) {
+    onError("")
+    setDetailsId(null)
+    setEditor(draftOf(client))
+  }
+
   async function deleteClient(client: ClientRecord) {
     if (!window.confirm(`Supprimer le client ${nameOf(client)} ?`)) return
     onError("")
@@ -143,6 +167,7 @@ export function ClientManager({
       const response = await fetch(`/api/clients?id=${encodeURIComponent(client.id)}`, { method: "DELETE" })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || "Suppression impossible.")
+      setDetailsId(null)
       await onChanged()
     } catch (error) {
       onError(error instanceof Error ? error.message : "Suppression impossible.")
@@ -186,20 +211,46 @@ export function ClientManager({
         ) : (
           <div className="overflow-auto">
             <table className="w-full min-w-[760px] border-collapse text-left">
-              <thead><tr className="bg-muted/40 text-[11px] tracking-wider text-muted-foreground"><th className="px-5 py-4">CLIENT</th><th className="px-5 py-4">CONTACT</th><th className="px-5 py-4">ADRESSE</th><th className="px-5 py-4">TYPE</th><th className="px-5 py-4 text-right">ACTIONS</th></tr></thead>
+              <thead><tr className="bg-muted/40 text-[11px] tracking-wider text-muted-foreground"><th className="px-5 py-4">CLIENT</th><th className="px-5 py-4">CONTACT</th><th className="px-5 py-4">ADRESSE</th><th className="px-5 py-4">TYPE</th><th className="px-5 py-4" /></tr></thead>
               <tbody>{shown.map((client) => (
-                <tr className="hover:bg-muted/30" key={client.id}>
+                <tr className="cursor-pointer hover:bg-muted/30" key={client.id} onClick={() => setDetailsId(client.id)}>
                   <td className="border-t px-5 py-5 text-sm"><div className="flex items-center gap-3 text-foreground [&>svg]:size-[18px] [&>svg]:shrink-0 [&>svg]:text-ring">{client.type === "entreprise" ? <Building2 /> : <UserRound />}<div><strong className="block">{nameOf(client)}</strong>{client.siret && <small className="mt-1 block text-[11px] font-normal text-muted-foreground">SIRET {client.siret}</small>}</div></div></td>
                   <td className="border-t px-5 py-5 text-sm text-muted-foreground"><div className="grid gap-1.5">{client.email && <span className="flex items-center gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"><Mail />{client.email}</span>}{client.phone && <span className="flex items-center gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"><Phone />{client.phone}</span>}{!client.email && !client.phone && "—"}</div></td>
                   <td className="border-t px-5 py-5 text-sm text-muted-foreground">{[client.address_line1, [client.postal_code, client.city].filter(Boolean).join(" ")].filter(Boolean).map((line) => <span className="block" key={line}>{line}</span>)}{!client.address_line1 && !client.city && "—"}</td>
                   <td className="border-t px-5 py-5 text-sm"><span className="inline-block rounded-full bg-secondary px-2.5 py-1.5 text-xs font-bold text-secondary-foreground capitalize">{client.type}</span></td>
-                  <td className="border-t px-5 py-5 text-sm"><div className="flex justify-end gap-1"><Button type="button" variant="ghost" size="icon-sm" aria-label={`Modifier ${nameOf(client)}`} onClick={() => setEditor(draftOf(client))}><Pencil /></Button><Button type="button" variant="ghost" size="icon-sm" aria-label={`Supprimer ${nameOf(client)}`} onClick={() => deleteClient(client)}><Trash2 /></Button></div></td>
+                  <td className="border-t px-5 py-5 text-right text-2xl text-muted-foreground">›</td>
                 </tr>
               ))}</tbody>
             </table>
           </div>
         )}
       </section>
+
+      <Dialog open={Boolean(details)} onOpenChange={(open) => !open && setDetailsId(null)}>
+        <DialogContent className="max-h-[92vh] w-[min(92vw,640px)] max-w-[640px] overflow-auto p-6 sm:max-w-[640px] max-sm:w-[98vw] max-sm:p-4">
+          {details && <>
+            <DialogHeader>
+              <div className="flex items-center gap-3 pr-8 [&>svg]:size-5 [&>svg]:shrink-0 [&>svg]:text-ring">
+                {details.type === "entreprise" ? <Building2 /> : <UserRound />}
+                <DialogTitle className="min-w-0 break-words">{nameOf(details)}</DialogTitle>
+                <span className="inline-block shrink-0 rounded-full bg-secondary px-2.5 py-1 text-xs font-bold text-secondary-foreground capitalize">{details.type}</span>
+              </div>
+            </DialogHeader>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => editClient(details)}><Pencil data-icon="inline-start" /> Modifier</Button>
+              <Button type="button" variant="ghost" size="icon" className="text-destructive" aria-label="Supprimer" onClick={() => deleteClient(details)}><Trash2 /></Button>
+            </div>
+            <ErrorBanner message={error} onDismiss={() => onError("")} />
+            <div className="rounded-xl border px-4">
+              <DetailRow icon={<Mail />} label="E-mail">{details.email ? <a className="text-ring underline-offset-2 hover:underline" href={`mailto:${details.email}`}>{details.email}</a> : missing}</DetailRow>
+              <DetailRow icon={<Phone />} label="Téléphone">{details.phone ? <a className="text-ring underline-offset-2 hover:underline" href={`tel:${details.phone.replace(/\s/g, "")}`}>{details.phone}</a> : missing}</DetailRow>
+              <DetailRow icon={<MapPin />} label="Adresse">{clientAddress(details) || missing}</DetailRow>
+              {details.type === "entreprise" && <DetailRow icon={<Building2 />} label="Informations légales">{details.siret || details.vat_number ? [details.siret && `SIRET : ${details.siret}`, details.vat_number && `N° de TVA : ${details.vat_number}`].filter(Boolean).join("\n") : missing}</DetailRow>}
+              <DetailRow icon={<StickyNote />} label="Notes">{details.notes || missing}</DetailRow>
+            </div>
+          </>}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(editor)} onOpenChange={(open) => !open && setEditor(null)}>
         <DialogContent className="max-h-[92vh] w-[min(92vw,860px)] max-w-[860px] overflow-auto p-6 max-sm:w-[98vw] max-sm:p-4">

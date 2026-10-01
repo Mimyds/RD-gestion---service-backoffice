@@ -32,7 +32,7 @@ export default function Login() {
     if (result.error) {
       setMessage(result.error.message);
     } else if (mode === "login" || result.data.session) {
-      window.location.assign("/");
+      window.location.assign("/factures");
     } else {
       setMessage("Consultez votre boîte e-mail pour confirmer votre compte.");
     }

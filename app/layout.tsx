@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Atelier Factures",
-  description: "Créez et suivez vos factures dans un espace privé.",
+  title: { template: "%s · RD Gestion & Services", default: "RD Gestion & Services" },
+  description: "Clients, factures et courriers de RD Gestion & Services.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

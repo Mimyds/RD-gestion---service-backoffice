@@ -24,7 +24,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone(); url.pathname = "/login"; url.search = "";
     const redirect = NextResponse.redirect(url); response.cookies.getAll().forEach(c => redirect.cookies.set(c)); return redirect;
   }
-  if (claims && pathname === "/login") { const url = request.nextUrl.clone(); url.pathname = "/"; return NextResponse.redirect(url); }
+  if (claims && pathname === "/login") { const url = request.nextUrl.clone(); url.pathname = "/factures"; return NextResponse.redirect(url); }
   return response;
 }
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"] };
