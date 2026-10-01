@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { Building2, Mail, Pencil, Phone, Plus, Search, Trash2, UserRound, UsersRound } from "lucide-react"
 
+import { ErrorBanner } from "@/components/error-banner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -87,11 +88,13 @@ const draftOf = (client: ClientRecord): ClientDraft => ({
 export function ClientManager({
   clients,
   loading,
+  error,
   onChanged,
   onError,
 }: {
   clients: ClientRecord[]
   loading: boolean
+  error: string
   onChanged: () => Promise<void>
   onError: (message: string) => void
 }) {
@@ -154,7 +157,7 @@ export function ClientManager({
           <h1 className="mb-3 text-5xl leading-none font-medium tracking-[-0.045em] max-sm:text-[39px]">Clients</h1>
           <p className="m-0 leading-6 text-muted-foreground">Centralisez les coordonnées utilisées dans vos factures et courriers.</p>
         </div>
-        <Button size="lg" onClick={() => setEditor(emptyClient())}>
+        <Button size="lg" onClick={() => { onError(""); setEditor(emptyClient()) }}>
           <Plus data-icon="inline-start" /> Nouveau client
         </Button>
       </div>
@@ -201,6 +204,7 @@ export function ClientManager({
       <Dialog open={Boolean(editor)} onOpenChange={(open) => !open && setEditor(null)}>
         <DialogContent className="max-h-[92vh] w-[min(92vw,860px)] max-w-[860px] overflow-auto p-6 max-sm:w-[98vw] max-sm:p-4">
           <DialogHeader><DialogTitle>{editor?.id ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>
+          <ErrorBanner message={error} onDismiss={() => onError("")} />
           {editor && <FieldGroup className="gap-5">
             <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
               <Field><FieldLabel htmlFor="client-type">Type de client</FieldLabel><select className="h-9 rounded-lg border bg-background px-2.5 text-foreground outline-ring" id="client-type" value={editor.type} onChange={(event) => setField("type", event.target.value as ClientDraft["type"])}><option value="entreprise">Entreprise</option><option value="particulier">Particulier</option></select></Field>

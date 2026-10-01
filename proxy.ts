@@ -17,6 +17,9 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;
   const pathname = request.nextUrl.pathname;
+  if (!claims && pathname.startsWith("/api/")) {
+    const unauthorized = NextResponse.json({ error: "Connexion requise." }, { status: 401 }); response.cookies.getAll().forEach(c => unauthorized.cookies.set(c)); return unauthorized;
+  }
   if (!claims && pathname !== "/login" && !pathname.startsWith("/auth/")) {
     const url = request.nextUrl.clone(); url.pathname = "/login"; url.search = "";
     const redirect = NextResponse.redirect(url); response.cookies.getAll().forEach(c => redirect.cookies.set(c)); return redirect;
