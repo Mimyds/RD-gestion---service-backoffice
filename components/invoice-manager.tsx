@@ -1,15 +1,15 @@
 "use client";
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
 import { Check, Download, FileText, LoaderCircle, Plus, Printer, Search, Send, Trash2 } from "lucide-react";
 import type { ClientRecord } from "@/components/client-manager";
 import { InvoiceEditor } from "@/components/invoice-editor";
 import { InvoicePaper } from "@/components/invoice-paper";
+import { ScaledPage } from "@/components/scaled-page";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fileName, formatDate } from "@/lib/dates";
-import { downloadElementAsPdf } from "@/lib/download-pdf";
 import type { CompanySettings } from "@/lib/company";
 import { blankInvoice, type Invoice, money, nextInvoiceNumber, total, withCurrentCompany } from "@/lib/invoices";
-import { printDocument } from "@/lib/print-document";
+import { downloadPdf, invoicePdf, printPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 
 const tw = {
@@ -31,7 +31,7 @@ const tw = {
   iconButton: "inline-grid place-items-center border-0 bg-transparent p-2.5 text-muted-foreground",
   editorDialog: "max-h-[92vh] w-[min(92vw,860px)] max-w-[860px] overflow-auto p-6 max-[700px]:w-[98vw] max-[700px]:p-4",
   previewDialog: "grid h-[94vh] w-[min(96vw,1120px)] max-w-[1120px] grid-rows-[auto_auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[1120px] max-[700px]:h-[96dvh] max-[700px]:w-[calc(100vw-1rem)]",
-  previewScroll: "min-h-0 overflow-auto bg-muted/40 p-6 max-[700px]:p-2",
+  previewScroll: "min-h-0 overflow-auto bg-muted/40 p-6 max-[700px]:p-3",
 } as const;
 
 type ModelContext = { registerTool: (tool: object, options: { signal: AbortSignal }) => void | Promise<void> };
@@ -46,8 +46,7 @@ export function InvoiceManager({ clients, company, error, onError, onClientsChan
   const [invoices, setInvoices] = useState<Invoice[]>([]), [loading, setLoading] = useState(true);
   const [editor, setEditor] = useState<Invoice | null>(null), [preview, setPreview] = useState<Invoice | null>(null);
   const [query, setQuery] = useState(""), [filter, setFilter] = useState("toutes");
-  const [exportingPdf, setExportingPdf] = useState(false);
-  const invoicePaperRef = useRef<HTMLDivElement>(null);
+  const [exportingPdf, setExportingPdf] = useState(false), [printing, setPrinting] = useState(false);
 
   const refresh = useCallback(async () => { try { const response = await fetch("/api/invoices"); const data = await response.json(); if (!response.ok) throw Error(data.error); setInvoices(data.invoices); } catch { onError("Impossible de charger vos factures. Réessayez dans un instant."); } finally { setLoading(false); } }, [onError]);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -72,12 +71,25 @@ export function InvoiceManager({ clients, company, error, onError, onClientsChan
   async function saved() { setEditor(null); await Promise.all([refresh(), onClientsChanged()]); }
   async function status(i: Invoice, value: Invoice["status"]) { try { const r = await fetch("/api/invoices", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...i, status: value }) }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Le statut n’a pas pu être modifié."); } }
   async function remove(i: Invoice) { if (!confirm(`Supprimer la facture ${i.number} ?`)) return; try { const r = await fetch(`/api/invoices?id=${encodeURIComponent(i.id)}`, { method: "DELETE" }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Suppression impossible."); } }
+  async function printInvoice() {
+    if (!preview) return;
+    const invoice = withCurrentCompany(preview, company);
+    setPrinting(true);
+    onError("");
+    try {
+      await printPdf(() => invoicePdf(invoice));
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : "Impression impossible.");
+    } finally {
+      setPrinting(false);
+    }
+  }
   async function downloadInvoicePdf() {
-    if (!preview || !invoicePaperRef.current) return;
+    if (!preview) return;
     setExportingPdf(true);
     onError("");
     try {
-      await downloadElementAsPdf(invoicePaperRef.current, fileName(`facture-${preview.number}`, "facture"));
+      await downloadPdf(() => invoicePdf(withCurrentCompany(preview, company)), fileName(`facture-${preview.number}`, "facture"));
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "Enregistrement du PDF impossible.");
     } finally {
@@ -170,8 +182,8 @@ export function InvoiceManager({ clients, company, error, onError, onClientsChan
 <div className="flex flex-wrap gap-2 px-6 pb-4 print:hidden max-[700px]:px-4">
 <button className={tw.outline} onClick={() => editInvoice(preview)}>Modifier</button>{preview.status === "brouillon" && <button className={tw.outline} onClick={() => status(preview, "envoyée")}>
 <Send size={16}/> Marquer envoyée</button>}{preview.status === "envoyée" && <button className={tw.outline} onClick={() => status(preview, "payée")}>
-<Check size={16}/> Marquer payée</button>}<button className={tw.outline} onClick={() => printDocument(invoicePaperRef.current)}>
-<Printer size={16}/> Imprimer</button>
+<Check size={16}/> Marquer payée</button>}<button className={tw.outline} disabled={printing} onClick={printInvoice}>
+{printing ? <LoaderCircle className="animate-spin" size={16}/> : <Printer size={16}/>} {printing ? "Préparation…" : "Imprimer"}</button>
 <button className={tw.outline} disabled={exportingPdf} onClick={downloadInvoicePdf}>
 {exportingPdf ? <LoaderCircle className="animate-spin" size={16}/> : <Download size={16}/>} {exportingPdf ? "Création du PDF…" : "Enregistrer en PDF"}</button>
 <button className={cn(tw.iconButton, "text-destructive")} aria-label="Supprimer" onClick={() => remove(preview)}>
@@ -179,7 +191,7 @@ export function InvoiceManager({ clients, company, error, onError, onClientsChan
 </button>
 </div>
 <div className={tw.previewScroll}>
-<InvoicePaper ref={invoicePaperRef} invoice={withCurrentCompany(preview, company)}/>
+<ScaledPage><InvoicePaper invoice={withCurrentCompany(preview, company)}/></ScaledPage>
 </div>
 </>}</DialogContent>
 </Dialog>

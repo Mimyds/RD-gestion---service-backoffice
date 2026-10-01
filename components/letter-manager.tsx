@@ -1,14 +1,15 @@
 "use client";
 
 import type { JSONContent } from "@tiptap/core";
-import { Download, Eye, LoaderCircle, Mail, Pencil, Plus, Printer, Search, Trash2 } from "lucide-react";
+import { Archive, Check, Download, Eye, LoaderCircle, Mail, Pencil, Plus, Printer, Search, Send, Trash2 } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ClientRecord } from "@/components/client-manager";
 import { DatePicker } from "@/components/date-picker";
 import { ErrorBanner } from "@/components/error-banner";
 import { LetterEditor } from "@/components/letter-editor";
+import { ScaledPage } from "@/components/scaled-page";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -17,12 +18,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { clientAddress, clientName } from "@/lib/clients";
 import { type CompanySettings, companyDetails } from "@/lib/company";
 import { fileName, formatDate, localDate } from "@/lib/dates";
-import { downloadElementAsPdf } from "@/lib/download-pdf";
-import { printDocument } from "@/lib/print-document";
+import { downloadPdf as savePdf, letterPdf, printPdf } from "@/lib/pdf";
 
 type LetterStatus = "brouillon" | "finalisé" | "envoyé" | "archivé";
 
-type Letter = {
+export type Letter = {
   id: string;
   clientId: string | null;
   subject: string;
@@ -56,6 +56,13 @@ const statusStyle: Record<LetterStatus, string> = {
   archivé: "bg-slate-100 text-slate-700",
 };
 
+// Next step offered in the preview, like « Marquer envoyée / payée » for invoices.
+const nextStatus: Partial<Record<LetterStatus, { status: LetterStatus; label: string; icon: typeof Check }>> = {
+  brouillon: { status: "finalisé", label: "Marquer finalisé", icon: Check },
+  finalisé: { status: "envoyé", label: "Marquer envoyé", icon: Send },
+  envoyé: { status: "archivé", label: "Archiver", icon: Archive },
+};
+
 const safeHref = (href: unknown) => typeof href === "string" && /^(https?:|mailto:|tel:)/i.test(href.trim()) ? href.trim() : undefined;
 
 function richTextNode(node: JSONContent, key: string): ReactNode {
@@ -87,7 +94,7 @@ function richTextNode(node: JSONContent, key: string): ReactNode {
 }
 
 function LetterPaper({ letter, company }: { letter: Letter; company: CompanySettings }) {
-  return <article className="letter-print-root mx-auto min-h-[1123px] w-[794px] bg-white px-[76px] py-[72px] font-sans text-[15px] leading-7 text-[#0f172a] shadow-xl">
+  return <article className="mx-auto min-h-[1123px] w-[794px] bg-white px-[76px] py-[72px] font-sans text-[15px] leading-7 text-[#0f172a] shadow-xl">
     <header className="mb-14 flex items-start justify-between gap-10">
       <div>
         <Image src="/logo-web.svg" alt="RD Gestion & Services" width={225} height={44} priority className="mb-4" style={{ width: "225px", height: "auto" }}/>
@@ -115,7 +122,7 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
   const [editor, setEditor] = useState<Letter | null>(null);
   const [preview, setPreview] = useState<Letter | null>(null);
   const [exporting, setExporting] = useState(false);
-  const letterPaperRef = useRef<HTMLDivElement>(null);
+  const [printing, setPrinting] = useState(false);
 
   const refreshLetters = useCallback(async () => {
     try {
@@ -192,22 +199,45 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Suppression impossible.");
       await refreshLetters();
+      setPreview(null);
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "Suppression impossible.");
     }
   }
 
-  function printLetter() {
-    printDocument(letterPaperRef.current?.firstElementChild as HTMLElement | null);
+  async function changeStatus(letter: Letter, status: LetterStatus) {
+    onError("");
+    try {
+      const response = await fetch("/api/letters", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...letter, status }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Le statut n’a pas pu être modifié.");
+      await refreshLetters();
+      setPreview(null);
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : "Le statut n’a pas pu être modifié.");
+    }
+  }
+
+  async function printLetter() {
+    if (!preview) return;
+    const letter = preview;
+    setPrinting(true);
+    onError("");
+    try {
+      await printPdf(() => letterPdf(letter, company));
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : "Impression impossible.");
+    } finally {
+      setPrinting(false);
+    }
   }
 
   async function downloadPdf() {
-    const element = letterPaperRef.current?.firstElementChild as HTMLElement | null;
-    if (!element || !preview) return;
+    if (!preview) return;
     setExporting(true);
     onError("");
     try {
-      await downloadElementAsPdf(element, fileName(preview.subject, "courrier"));
+      await savePdf(() => letterPdf(preview, company), fileName(preview.subject, "courrier"));
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "Téléchargement du PDF impossible.");
     } finally {
@@ -215,6 +245,8 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
     }
   }
 
+  const stored = Boolean(preview?.id) && !editor;
+  const next = preview ? nextStatus[preview.status] : undefined;
   const drafts = letters.filter((letter) => letter.status === "brouillon").length;
   const sent = letters.filter((letter) => letter.status === "envoyé").length;
 
@@ -245,13 +277,13 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
         <p className="mx-auto mb-5 max-w-md text-sm leading-6">{letters.length ? "Essayez une autre recherche." : "Créez votre premier courrier avec l’éditeur et son assistant de correction."}</p>
         {!letters.length ? <Button variant="outline" onClick={() => openEditor(emptyLetter())}><Plus data-icon="inline-start"/> Créer un courrier</Button> : null}
       </div> : <div className="overflow-auto"><table className="w-full min-w-[760px] border-collapse text-left">
-        <thead><tr className="bg-muted/40 text-[11px] tracking-wider text-muted-foreground"><th className="px-5 py-4">OBJET</th><th className="px-5 py-4">DESTINATAIRE</th><th className="px-5 py-4">DATE</th><th className="px-5 py-4">STATUT</th><th className="px-5 py-4 text-right">ACTIONS</th></tr></thead>
-        <tbody>{shown.map((letter) => <tr key={letter.id} className="hover:bg-muted/30">
+        <thead><tr className="bg-muted/40 text-[11px] tracking-wider text-muted-foreground"><th className="px-5 py-4">OBJET</th><th className="px-5 py-4">DESTINATAIRE</th><th className="px-5 py-4">DATE</th><th className="px-5 py-4">STATUT</th><th className="px-5 py-4"/></tr></thead>
+        <tbody>{shown.map((letter) => <tr key={letter.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setPreview(letter)}>
           <td className="border-t px-5 py-5 text-sm"><strong className="block text-foreground">{letter.subject}</strong>{letter.reference ? <small className="mt-1 block text-muted-foreground">Réf. {letter.reference}</small> : null}</td>
           <td className="border-t px-5 py-5 text-sm text-muted-foreground">{letter.recipient || "—"}</td>
           <td className="border-t px-5 py-5 text-sm text-muted-foreground">{formatDate(letter.date)}</td>
           <td className="border-t px-5 py-5 text-sm"><span className={`inline-flex rounded-full px-2.5 py-1.5 text-xs font-bold capitalize ${statusStyle[letter.status]}`}>{letter.status}</span></td>
-          <td className="border-t px-5 py-5"><div className="flex justify-end gap-1"><Button type="button" variant="ghost" size="icon-sm" aria-label={`Aperçu ${letter.subject}`} onClick={() => setPreview(letter)}><Eye/></Button><Button type="button" variant="ghost" size="icon-sm" aria-label={`Modifier ${letter.subject}`} onClick={() => openEditor(letter)}><Pencil/></Button><Button type="button" variant="ghost" size="icon-sm" aria-label={`Supprimer ${letter.subject}`} onClick={() => remove(letter)}><Trash2/></Button></div></td>
+          <td className="border-t px-5 py-5 text-right text-2xl text-muted-foreground">›</td>
         </tr>)}</tbody>
       </table></div>}
     </section>
@@ -278,15 +310,18 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
 
     <Dialog open={Boolean(preview)} onOpenChange={(open) => !open && setPreview(null)}>
       <DialogContent className="grid h-[96vh] w-[min(97vw,1040px)] max-w-[1040px] grid-rows-[auto_auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[1040px] max-sm:h-[98dvh] max-sm:w-[calc(100vw-.5rem)]">
-        <DialogHeader className="px-6 pt-6 pr-14 pb-3 max-sm:px-4 max-sm:pt-4 max-sm:pr-12"><DialogTitle>Aperçu du courrier</DialogTitle></DialogHeader>
+        <DialogHeader className="px-6 pt-6 pr-14 pb-3 max-sm:px-4 max-sm:pt-4 max-sm:pr-12"><DialogTitle>{preview?.subject ? `Courrier : ${preview.subject}` : "Aperçu du courrier"}</DialogTitle></DialogHeader>
         {preview ? <>
-          <div className="flex flex-wrap gap-2 border-b px-6 pb-4 max-sm:px-4">
-            <Button type="button" variant="outline" onClick={() => { setEditor(preview); setPreview(null); }}><Pencil data-icon="inline-start"/> Modifier</Button>
-            <Button type="button" variant="outline" onClick={printLetter}><Printer data-icon="inline-start"/> Imprimer</Button>
-            <Button type="button" disabled={exporting} onClick={downloadPdf}>{exporting ? <LoaderCircle className="animate-spin" data-icon="inline-start"/> : <Download data-icon="inline-start"/>}{exporting ? "Création du PDF…" : "Télécharger en PDF"}</Button>
+          <div className="flex flex-wrap gap-2 px-6 pb-4 max-sm:px-4">
+            <Button type="button" variant="outline" onClick={() => { openEditor(preview); setPreview(null); }}><Pencil data-icon="inline-start"/> Modifier</Button>
+            {/* Status changes and deletion only apply to a saved letter, not to the unsaved draft previewed from the editor. */}
+            {stored && next ? <Button type="button" variant="outline" onClick={() => changeStatus(preview, next.status)}><next.icon data-icon="inline-start"/> {next.label}</Button> : null}
+            <Button type="button" variant="outline" disabled={printing} onClick={printLetter}>{printing ? <LoaderCircle className="animate-spin" data-icon="inline-start"/> : <Printer data-icon="inline-start"/>}{printing ? "Préparation…" : "Imprimer"}</Button>
+            <Button type="button" variant="outline" disabled={exporting} onClick={downloadPdf}>{exporting ? <LoaderCircle className="animate-spin" data-icon="inline-start"/> : <Download data-icon="inline-start"/>}{exporting ? "Création du PDF…" : "Enregistrer en PDF"}</Button>
+            {stored ? <Button type="button" variant="ghost" size="icon" className="text-destructive" aria-label="Supprimer" onClick={() => remove(preview)}><Trash2/></Button> : null}
           </div>
-          <div className="min-h-0 overflow-auto bg-slate-200 p-7 max-sm:p-2">
-            <div ref={letterPaperRef}><LetterPaper letter={preview} company={company}/></div>
+          <div className="min-h-0 overflow-auto bg-muted/40 p-6 max-sm:p-3">
+            <ScaledPage><LetterPaper letter={preview} company={company}/></ScaledPage>
           </div>
         </> : null}
       </DialogContent>
