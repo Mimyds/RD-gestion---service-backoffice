@@ -53,7 +53,7 @@ export default function ResetPasswordPage() {
           <CardDescription className="text-base">Choisissez un nouveau mot de passe pour votre compte.</CardDescription>
         </CardHeader>
         <CardContent className="px-8 pt-7 pb-7">
-          <form onSubmit={submit}>
+          <form method="post" onSubmit={submit}>
             <FieldGroup className="gap-5">
               <Field>
                 <FieldLabel htmlFor="new-password">Nouveau mot de passe</FieldLabel>

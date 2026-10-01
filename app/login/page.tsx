@@ -46,7 +46,7 @@ export default function Login() {
           <CardDescription className="text-base">{mode === "forgot" ? "Recevez un lien pour choisir un nouveau mot de passe." : "Accédez à votre espace de facturation."}</CardDescription>
         </CardHeader>
         <CardContent className="px-8 pt-7 pb-3">
-          <form onSubmit={submit}>
+          <form method="post" onSubmit={submit}>
             <FieldGroup className="gap-5">
               <Field>
                 <FieldLabel htmlFor="email">Adresse e-mail</FieldLabel>
