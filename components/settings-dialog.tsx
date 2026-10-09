@@ -8,6 +8,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { type CompanySettings, SETTINGS_LIMITS } from "@/lib/company";
+import { apiFetch } from "@/lib/http";
 
 type FieldConfig = { key: keyof CompanySettings; label: string; multiline?: boolean; type?: string; description?: string; wide?: boolean };
 
@@ -45,7 +46,7 @@ function SettingsForm({ initial, onCancel, onSaved }: { initial: CompanySettings
     setSaving(true);
     setError("");
     try {
-      const response = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) });
+      const response = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Enregistrement impossible.");
       onSaved(result.settings);

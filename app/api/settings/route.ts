@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticated, fail } from "@/lib/api";
+import { authenticated, fail, rateLimited, readJsonBody } from "@/lib/api";
 import { type CompanySettings, SETTINGS_LIMITS } from "@/lib/company";
 import { loadSettings, settingsToRow } from "@/lib/settings";
 
@@ -23,6 +23,7 @@ function parse(input: unknown): CompanySettings | string {
 export async function GET() {
   const { db, user } = await authenticated();
   if (!user) return fail("Connexion requise.", 401);
+  const limited = await rateLimited(db, "settings:read", 120); if (limited) return limited;
   const { settings, error } = await loadSettings(db, user);
   if (error) return fail("Impossible de charger les réglages.", 503);
   return NextResponse.json({ settings });
@@ -31,8 +32,9 @@ export async function GET() {
 export async function PUT(request: Request) {
   const { db, user } = await authenticated();
   if (!user) return fail("Connexion requise.", 401);
-  let input: unknown;
-  try { input = await request.json(); } catch { return fail("Données invalides.", 400); }
+  const limited = await rateLimited(db, "settings:write", 30); if (limited) return limited;
+  const body = await readJsonBody(request, 32_000); if (body.response) return body.response;
+  const input = body.data;
   const settings = parse(input);
   if (typeof settings === "string") return fail(settings, 400);
   const current = await loadSettings(db, user);

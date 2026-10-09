@@ -4,7 +4,7 @@ import { formatDate } from "@/lib/dates";
 import { type Invoice, lineTotal, money, subtotal, total } from "@/lib/invoices";
 import { cn } from "@/lib/utils";
 
-const paper = "relative flex min-h-[1040px] flex-col border bg-white px-12 pt-14 pb-8 font-sans text-[#0d4d75] shadow-lg";
+const paper = "relative flex min-h-[1040px] flex-col border bg-white px-12 pt-14 pb-8 font-sans text-[#001B48] shadow-lg";
 
 export function InvoicePaper({ invoice }: { invoice: Invoice }) {
   return <div className={cn(paper, "w-[794px]")}>
@@ -12,7 +12,7 @@ export function InvoicePaper({ invoice }: { invoice: Invoice }) {
 <div className="w-[48%]">
 <Image src="/logo-web.svg" alt="RD Gestion & Services" width={285} height={56} priority className="h-[56px] w-[285px] max-w-full object-contain object-left-top"/>
 </div>
-<div className="w-[42%] text-[#202945] [&_p]:my-1 [&_p]:whitespace-pre-line [&_p]:text-xs [&_p]:font-semibold [&_p]:leading-[1.35] [&_strong]:mb-1.5 [&_strong]:block [&_strong]:text-[13px] [&_strong]:uppercase">
+<div className="w-[42%] text-[#001B48] [&_p]:my-1 [&_p]:whitespace-pre-line [&_p]:text-xs [&_p]:font-semibold [&_p]:leading-[1.35] [&_strong]:mb-1.5 [&_strong]:block [&_strong]:text-[13px] [&_strong]:uppercase">
 <strong>{invoice.issuer}</strong>
 <p>{invoice.issuerAddress}</p>
 <p>{invoice.issuerDetails}</p>
@@ -48,7 +48,7 @@ export function InvoicePaper({ invoice }: { invoice: Invoice }) {
 </tr>)}</tbody>
 </table>
 <div className="mt-4 grid grid-cols-[41%_59%] items-start">
-<div className="m-0 px-2 pt-2 pr-3.5 text-[11px] text-[#315d79] [&_p]:whitespace-pre-line [&_p]:text-[11px] [&_p]:leading-[1.45] [&_strong]:uppercase">
+<div className="m-0 px-2 pt-2 pr-3.5 text-[11px] text-[#001B48] [&_p]:whitespace-pre-line [&_p]:text-[11px] [&_p]:leading-[1.45] [&_strong]:uppercase">
 <strong>Coordonnées bancaires</strong>
 <p>{invoice.bankDetails || DEFAULT_COMPANY.bankDetails}</p>
 </div>
@@ -65,7 +65,7 @@ export function InvoicePaper({ invoice }: { invoice: Invoice }) {
 <span>Autres coûts</span>
 <strong>{money(0, invoice.currency)}</strong>
 </div>
-<div className="text-sm! text-[#e9853e] [&_strong]:text-[#0d4d75]">
+<div className="text-sm! text-[#001B48] [&_strong]:text-[#001B48]">
 <span>Total TTC</span>
 <strong>{money(total(invoice), invoice.currency)}</strong>
 </div>

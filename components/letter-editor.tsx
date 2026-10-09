@@ -18,6 +18,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { useRef, useState } from "react";
+import { apiFetch } from "@/lib/http";
 import { cn } from "@/lib/utils";
 
 export type ProofreadMatch = {
@@ -103,7 +104,7 @@ export function LetterEditor({ content, onChange }: LetterEditorProps) {
     setChecking(true);
     setError("");
     try {
-      const response = await fetch("/api/proofread", {
+      const response = await apiFetch("/api/proofread", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),

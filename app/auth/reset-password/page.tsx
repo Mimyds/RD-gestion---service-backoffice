@@ -37,11 +37,12 @@ export default function ResetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (error) {
-      setMessage(error.message);
+      setMessage("Le mot de passe n’a pas pu être modifié. Vérifiez qu’il respecte les règles de sécurité.");
       return;
     }
-    setMessage("Votre mot de passe a été modifié. Redirection en cours…");
-    window.setTimeout(() => window.location.assign("/"), 900);
+    await supabase.auth.signOut({ scope: "global" });
+    setMessage("Votre mot de passe a été modifié. Reconnexion requise…");
+    window.setTimeout(() => window.location.assign("/login"), 900);
   }
 
   return (
@@ -58,7 +59,7 @@ export default function ResetPasswordPage() {
               <Field>
                 <FieldLabel htmlFor="new-password">Nouveau mot de passe</FieldLabel>
                 <InputGroup className="h-11">
-                  <InputGroupInput id="new-password" type={showPassword ? "text" : "password"} required minLength={6} autoComplete="new-password" disabled={!ready || busy} value={password} onChange={(event) => setPassword(event.target.value)} />
+                  <InputGroupInput id="new-password" type={showPassword ? "text" : "password"} required minLength={10} autoComplete="new-password" disabled={!ready || busy} value={password} onChange={(event) => setPassword(event.target.value)} />
                   <InputGroupAddon align="inline-end">
                     <InputGroupButton size="icon-sm" aria-label={showPassword ? "Masquer les mots de passe" : "Afficher les mots de passe"} aria-pressed={showPassword} onClick={() => setShowPassword((value) => !value)}>
                       {showPassword ? <EyeOff /> : <Eye />}
@@ -69,7 +70,7 @@ export default function ResetPasswordPage() {
               <Field>
                 <FieldLabel htmlFor="password-confirmation">Confirmer le mot de passe</FieldLabel>
                 <InputGroup className="h-11">
-                  <InputGroupInput id="password-confirmation" type={showPassword ? "text" : "password"} required minLength={6} autoComplete="new-password" disabled={!ready || busy} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
+                  <InputGroupInput id="password-confirmation" type={showPassword ? "text" : "password"} required minLength={10} autoComplete="new-password" disabled={!ready || busy} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
                 </InputGroup>
               </Field>
               <Button className="h-11 w-full text-base" type="submit" size="lg" disabled={!ready || busy}>{busy ? "Modification…" : "Modifier le mot de passe"}</Button>

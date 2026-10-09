@@ -8,6 +8,7 @@ import { ScaledPage } from "@/components/scaled-page";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fileName, formatDate } from "@/lib/dates";
 import type { CompanySettings } from "@/lib/company";
+import { apiFetch } from "@/lib/http";
 import { blankInvoice, type Invoice, money, nextInvoiceNumber, total, withCurrentCompany } from "@/lib/invoices";
 import { downloadPdf, invoicePdf, printPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
@@ -48,7 +49,7 @@ export function InvoiceManager({ clients, company, error, onError, onClientsChan
   const [query, setQuery] = useState(""), [filter, setFilter] = useState("toutes");
   const [exportingPdf, setExportingPdf] = useState(false), [printing, setPrinting] = useState(false);
 
-  const refresh = useCallback(async () => { try { const response = await fetch("/api/invoices"); const data = await response.json(); if (!response.ok) throw Error(data.error); setInvoices(data.invoices); } catch { onError("Impossible de charger vos factures. Réessayez dans un instant."); } finally { setLoading(false); } }, [onError]);
+  const refresh = useCallback(async () => { try { const response = await apiFetch("/api/invoices"); const data = await response.json(); if (!response.ok) throw Error(data.error); setInvoices(data.invoices); } catch { onError("Impossible de charger vos factures. Réessayez dans un instant."); } finally { setLoading(false); } }, [onError]);
   useEffect(() => { void refresh(); }, [refresh]);
 
   function start() { onError(""); setEditor({ ...blankInvoice(company), number: nextInvoiceNumber(invoices) }); }
@@ -69,8 +70,8 @@ export function InvoiceManager({ clients, company, error, onError, onClientsChan
 
   function editInvoice(invoice: Invoice) { onError(""); setEditor(withCurrentCompany(invoice, company)); setPreview(null); }
   async function saved() { setEditor(null); await Promise.all([refresh(), onClientsChanged()]); }
-  async function status(i: Invoice, value: Invoice["status"]) { try { const r = await fetch("/api/invoices", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...i, status: value }) }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Le statut n’a pas pu être modifié."); } }
-  async function remove(i: Invoice) { if (!confirm(`Supprimer la facture ${i.number} ?`)) return; try { const r = await fetch(`/api/invoices?id=${encodeURIComponent(i.id)}`, { method: "DELETE" }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Suppression impossible."); } }
+  async function status(i: Invoice, value: Invoice["status"]) { try { const r = await apiFetch("/api/invoices", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...i, status: value }) }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Le statut n’a pas pu être modifié."); } }
+  async function remove(i: Invoice) { if (!confirm(`Supprimer la facture ${i.number} ?`)) return; try { const r = await apiFetch(`/api/invoices?id=${encodeURIComponent(i.id)}`, { method: "DELETE" }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Suppression impossible."); } }
   async function printInvoice() {
     if (!preview) return;
     const invoice = withCurrentCompany(preview, company);

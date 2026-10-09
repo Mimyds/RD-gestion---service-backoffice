@@ -21,7 +21,7 @@ export default function Login() {
       });
       setBusy(false);
       setMessage(error
-        ? error.message
+        ? "La demande n’a pas pu être traitée. Réessayez dans quelques instants."
         : "Si un compte correspond à cette adresse, un lien de réinitialisation vient d’être envoyé.");
       return;
     }
@@ -30,7 +30,9 @@ export default function Login() {
       : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
     setBusy(false);
     if (result.error) {
-      setMessage(result.error.message);
+      setMessage(mode === "login"
+        ? "Adresse e-mail ou mot de passe incorrect."
+        : "Le compte n’a pas pu être créé. Vérifiez les informations saisies.");
     } else if (mode === "login" || result.data.session) {
       window.location.assign("/factures");
     } else {
@@ -55,7 +57,7 @@ export default function Login() {
               {mode !== "forgot" && <Field>
                   <FieldLabel htmlFor="password">Mot de passe</FieldLabel>
                   <InputGroup className="h-11">
-                    <InputGroupInput id="password" type={showPassword ? "text" : "password"} required minLength={6} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={e => setPassword(e.target.value)} />
+                    <InputGroupInput id="password" type={showPassword ? "text" : "password"} required minLength={mode === "signup" ? 10 : undefined} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={e => setPassword(e.target.value)} />
                     <InputGroupAddon align="inline-end">
                       <InputGroupButton size="icon-sm" aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>
                         {showPassword ? <EyeOff /> : <Eye />}
