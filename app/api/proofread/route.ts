@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
-import { authenticated, fail } from "@/lib/api";
+import { authenticated, fail, rateLimited, readJsonBody } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const { user } = await authenticated();
+  const { db, user } = await authenticated();
   if (!user) return fail("Connexion requise.", 401);
-
-  let input: { text?: unknown };
-  try {
-    input = await request.json();
-  } catch {
-    return fail("Données invalides.", 400);
-  }
+  const limited = await rateLimited(db, "proofread", 10); if (limited) return limited;
+  const requestBody = await readJsonBody<{ text?: unknown }>(request, 25_000); if (requestBody.response) return requestBody.response;
+  const input = requestBody.data!;
 
   const content = typeof input.text === "string" ? input.text : "";
   if (!content.trim()) return fail("Le courrier est vide.", 400);

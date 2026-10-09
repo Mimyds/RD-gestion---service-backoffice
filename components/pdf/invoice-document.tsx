@@ -5,13 +5,13 @@ import { formatDate } from "@/lib/dates";
 import { type Invoice, lineTotal, money, subtotal, total } from "@/lib/invoices";
 
 // Mirrors components/invoice-paper.tsx (screen preview); sizes are the preview's pixels × 0.75.
-const blue = "#0d4d75";
+const blue = "#001B48";
 const border = "#d2d2d2";
 const styles = StyleSheet.create({
   page: { paddingTop: 42, paddingHorizontal: 36, paddingBottom: 60, fontFamily: "Helvetica", color: blue },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   logo: { width: 214, height: 42, objectFit: "contain" },
-  issuer: { width: "42%", color: "#202945" },
+  issuer: { width: "42%", color: blue },
   issuerName: { fontFamily: "Helvetica-Bold", fontSize: 9.75, textTransform: "uppercase", marginBottom: 4.5 },
   issuerLine: { fontFamily: "Helvetica-Bold", fontSize: 9, lineHeight: 1.35, marginVertical: 0.75 },
   title: { fontSize: 16.5, marginTop: 60, marginBottom: 27, letterSpacing: 0.15 },
@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
   th: { width: "25%", backgroundColor: "#0c4d74", color: "#ffffff", fontSize: 9, textTransform: "uppercase", textAlign: "center", paddingVertical: 7.5, paddingHorizontal: 9, borderRightWidth: 0.75, borderBottomWidth: 0.75, borderColor: border },
   td: { width: "25%", minHeight: 60, fontSize: 9, lineHeight: 1.35, paddingVertical: 7.5, paddingHorizontal: 9, borderRightWidth: 0.75, borderBottomWidth: 0.75, borderColor: border },
   summary: { flexDirection: "row", marginTop: 12, alignItems: "flex-start" },
-  bank: { width: "41%", paddingTop: 6, paddingLeft: 6, paddingRight: 10.5, fontSize: 8.25, lineHeight: 1.45, color: "#315d79" },
+  bank: { width: "41%", paddingTop: 6, paddingLeft: 6, paddingRight: 10.5, fontSize: 8.25, lineHeight: 1.45, color: blue },
   bankTitle: { fontFamily: "Helvetica-Bold", textTransform: "uppercase" },
   totals: { width: "59%", borderTopWidth: 0.75, borderColor: border },
   totalRow: { flexDirection: "row", justifyContent: "space-between", minHeight: 24, paddingVertical: 6, paddingHorizontal: 7.5, fontSize: 9, textTransform: "uppercase", borderLeftWidth: 0.75, borderRightWidth: 0.75, borderBottomWidth: 0.75, borderColor: border },
@@ -83,7 +83,7 @@ export function InvoiceDocument({ invoice }: { invoice: Invoice }) {
           <View style={styles.totalRow}><Text>Sous-total HT</Text><Text style={styles.strong}>{pdfText(money(subtotal(invoice), currency))}</Text></View>
           <View style={styles.totalRow}><Text>Total TVA</Text><Text style={styles.strong}>{pdfText(money(total(invoice) - subtotal(invoice), currency))}</Text></View>
           <View style={styles.totalRow}><Text>Autres coûts</Text><Text style={styles.strong}>{pdfText(money(0, currency))}</Text></View>
-          <View style={[styles.totalRow, { fontSize: 10.5, color: "#e9853e" }]}><Text>Total TTC</Text><Text style={[styles.strong, { color: blue }]}>{pdfText(money(total(invoice), currency))}</Text></View>
+          <View style={[styles.totalRow, { fontSize: 10.5, color: blue }]}><Text>Total TTC</Text><Text style={styles.strong}>{pdfText(money(total(invoice), currency))}</Text></View>
           <View style={[styles.totalRow, { fontSize: 8.25 }]}><Text>Échéance paiement</Text><Text style={styles.strong}>{formatDate(invoice.dueDate)}</Text></View>
         </View>
       </View>

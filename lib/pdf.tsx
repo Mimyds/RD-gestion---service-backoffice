@@ -14,14 +14,23 @@ export async function letterPdf(letter: Letter, company: CompanySettings) {
 }
 
 export async function downloadPdf(render: () => Promise<Blob>, filename: string) {
-  const url = URL.createObjectURL(await render());
+  const rendered = await render();
+  const blob = rendered.type === "application/pdf"
+    ? rendered
+    : new Blob([rendered], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = `${filename}.pdf`;
+  link.style.display = "none";
   document.body.appendChild(link);
   link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  // Keep the link for one frame so Chromium can commit the target filename,
+  // then release the Blob promptly instead of leaving a pending .crdownload.
+  window.requestAnimationFrame(() => {
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  });
 }
 
 // Safari (iOS and macOS) cannot print a PDF shown in a hidden iframe: open it in a tab, where its own print/share menu prints it page for page.

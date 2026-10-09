@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticated, fail, isUuid } from "@/lib/api";
+import { authenticated, fail, isUuid, rateLimited, readJsonBody } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -7,41 +7,41 @@ const selection = "id,type,company_name,first_name,last_name,email,phone,address
 
 function parse(input: Record<string, unknown>) {
   const type = input.type === "particulier" ? "particulier" : "entreprise";
-  const value = (key: string) => typeof input[key] === "string" ? input[key].trim() || null : null;
-  const companyName = value("companyName");
-  const firstName = value("firstName");
-  const lastName = value("lastName");
+  const value = (key: string, max: number) => typeof input[key] === "string" ? input[key].trim().slice(0, max) || null : null;
+  const companyName = value("companyName", 200);
+  const firstName = value("firstName", 120);
+  const lastName = value("lastName", 120);
   if ((type === "entreprise" && !companyName) || (type === "particulier" && !firstName && !lastName)) return null;
   return {
     type,
     company_name: type === "entreprise" ? companyName : null,
     first_name: type === "particulier" ? firstName : null,
     last_name: type === "particulier" ? lastName : null,
-    email: value("email"),
-    phone: value("phone"),
-    address_line1: value("addressLine1"),
-    address_line2: value("addressLine2"),
-    postal_code: value("postalCode"),
-    city: value("city"),
-    country: value("country") || "France",
-    siret: value("siret"),
-    vat_number: value("vatNumber"),
-    notes: value("notes")
+    email: value("email", 254),
+    phone: value("phone", 50),
+    address_line1: value("addressLine1", 300),
+    address_line2: value("addressLine2", 300),
+    postal_code: value("postalCode", 20),
+    city: value("city", 120),
+    country: value("country", 120) || "France",
+    siret: value("siret", 30),
+    vat_number: value("vatNumber", 40),
+    notes: value("notes", 5_000)
   };
 }
 
 async function readInput(request: Request) {
-  try {
-    const input = await request.json();
-    return input && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : null;
-  } catch {
-    return null;
-  }
+  const result = await readJsonBody<Record<string, unknown>>(request);
+  if (result.response) return result;
+  return result.data && typeof result.data === "object" && !Array.isArray(result.data)
+    ? result
+    : { response: fail("Données invalides.", 400) };
 }
 
 export async function GET() {
   const { db, user } = await authenticated();
   if (!user) return fail("Connexion requise.", 401);
+  const limited = await rateLimited(db, "clients:read", 120); if (limited) return limited;
   const { data, error } = await db
     .from("clients")
     .select(selection)
@@ -55,8 +55,9 @@ export async function GET() {
 export async function POST(request: Request) {
   const { db, user } = await authenticated();
   if (!user) return fail("Connexion requise.", 401);
-  const input = await readInput(request);
-  if (!input) return fail("Données invalides.", 400);
+  const limited = await rateLimited(db, "clients:write"); if (limited) return limited;
+  const body = await readInput(request); if (body.response) return body.response;
+  const input = body.data!;
   const values = parse(input);
   if (!values) return fail("Le nom du client est requis.", 400);
   const { data, error } = await db.from("clients").insert({ user_id: user, ...values }).select(selection).single();
@@ -67,8 +68,9 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const { db, user } = await authenticated();
   if (!user) return fail("Connexion requise.", 401);
-  const input = await readInput(request);
-  if (!input) return fail("Données invalides.", 400);
+  const limited = await rateLimited(db, "clients:write"); if (limited) return limited;
+  const body = await readInput(request); if (body.response) return body.response;
+  const input = body.data!;
   if (!isUuid(input.id)) return fail("Client introuvable.", 400);
   const values = parse(input);
   if (!values) return fail("Le nom du client est requis.", 400);
@@ -80,6 +82,7 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   const { db, user } = await authenticated();
   if (!user) return fail("Connexion requise.", 401);
+  const limited = await rateLimited(db, "clients:write"); if (limited) return limited;
   const id = new URL(request.url).searchParams.get("id");
   if (!isUuid(id)) return fail("Client introuvable.", 400);
   const { error } = await db.from("clients").delete().eq("id", id).eq("user_id", user);

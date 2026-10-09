@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { clientAddress, clientName } from "@/lib/clients";
 import { type CompanySettings, companyDetails } from "@/lib/company";
 import { fileName, formatDate, localDate } from "@/lib/dates";
+import { apiFetch } from "@/lib/http";
 import { downloadPdf as savePdf, letterPdf, printPdf } from "@/lib/pdf";
 
 type LetterStatus = "brouillon" | "finalisé" | "envoyé" | "archivé";
@@ -75,7 +76,7 @@ function richTextNode(node: JSONContent, key: string): ReactNode {
       if (mark.type === "strike") value = <s key={markKey}>{value}</s>;
       if (mark.type === "underline") value = <u key={markKey}>{value}</u>;
       if (mark.type === "code") value = <code key={markKey} className="rounded bg-slate-100 px-1 font-mono text-[0.9em]">{value}</code>;
-      if (mark.type === "link") value = <a key={markKey} href={safeHref(mark.attrs?.href)} className="text-[#0d4d75] underline">{value}</a>;
+      if (mark.type === "link") value = <a key={markKey} href={safeHref(mark.attrs?.href)} className="text-[#001B48] underline">{value}</a>;
     }
     return value;
   }
@@ -94,15 +95,15 @@ function richTextNode(node: JSONContent, key: string): ReactNode {
 }
 
 function LetterPaper({ letter, company }: { letter: Letter; company: CompanySettings }) {
-  return <article className="mx-auto min-h-[1123px] w-[794px] bg-white px-[76px] py-[72px] font-sans text-[15px] leading-7 text-[#0f172a] shadow-xl">
+  return <article className="mx-auto min-h-[1123px] w-[794px] bg-white px-[76px] py-[72px] font-sans text-[15px] leading-7 text-[#001B48] shadow-xl">
     <header className="mb-14 flex items-start justify-between gap-10">
       <div>
         <Image src="/logo-web.svg" alt="RD Gestion & Services" width={225} height={44} priority className="mb-4" style={{ width: "225px", height: "auto" }}/>
-        <p className="text-xs leading-5 whitespace-pre-line text-[#475569]">{company.address}<br/>{companyDetails(company)}</p>
+        <p className="text-xs leading-5 whitespace-pre-line text-[#001B48]">{company.address}<br/>{companyDetails(company)}</p>
       </div>
       <div className="max-w-[310px] pt-16 text-left">
         <p className="font-semibold">{letter.recipient || "Destinataire"}</p>
-        <p className="whitespace-pre-line text-[#334155]">{letter.recipientAddress || "Adresse du destinataire"}</p>
+        <p className="whitespace-pre-line text-[#001B48]">{letter.recipientAddress || "Adresse du destinataire"}</p>
       </div>
     </header>
     <div className="mb-10 flex items-end justify-between gap-8">
@@ -126,7 +127,7 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
 
   const refreshLetters = useCallback(async () => {
     try {
-      const response = await fetch("/api/letters");
+      const response = await apiFetch("/api/letters");
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Chargement impossible.");
       setLetters(result.letters || []);
@@ -175,7 +176,7 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
     setSaving(true);
     onError("");
     try {
-      const response = await fetch("/api/letters", {
+      const response = await apiFetch("/api/letters", {
         method: editor.id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editor),
@@ -195,7 +196,7 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
     if (!window.confirm(`Supprimer le courrier « ${letter.subject} » ?`)) return;
     onError("");
     try {
-      const response = await fetch(`/api/letters?id=${encodeURIComponent(letter.id)}`, { method: "DELETE" });
+      const response = await apiFetch(`/api/letters?id=${encodeURIComponent(letter.id)}`, { method: "DELETE" });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Suppression impossible.");
       await refreshLetters();
@@ -208,7 +209,7 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
   async function changeStatus(letter: Letter, status: LetterStatus) {
     onError("");
     try {
-      const response = await fetch("/api/letters", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...letter, status }) });
+      const response = await apiFetch("/api/letters", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...letter, status }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Le statut n’a pas pu être modifié.");
       await refreshLetters();

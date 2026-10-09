@@ -10,6 +10,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { clientAddress } from "@/lib/clients"
+import { apiFetch } from "@/lib/http"
 
 export type ClientRecord = {
   id: string
@@ -138,7 +139,7 @@ export function ClientManager({
     setSaving(true)
     onError("")
     try {
-      const response = await fetch("/api/clients", {
+      const response = await apiFetch("/api/clients", {
         method: editor.id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editor),
@@ -164,7 +165,7 @@ export function ClientManager({
     if (!window.confirm(`Supprimer le client ${nameOf(client)} ?`)) return
     onError("")
     try {
-      const response = await fetch(`/api/clients?id=${encodeURIComponent(client.id)}`, { method: "DELETE" })
+      const response = await apiFetch(`/api/clients?id=${encodeURIComponent(client.id)}`, { method: "DELETE" })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || "Suppression impossible.")
       setDetailsId(null)

@@ -6,14 +6,15 @@ import { assetUrl, pdfText } from "@/components/pdf/pdf-text";
 import { type CompanySettings, companyDetails } from "@/lib/company";
 
 // Mirrors LetterPaper in components/letter-manager.tsx; sizes are the preview's pixels × 0.75.
+const documentText = "#001B48";
 const styles = StyleSheet.create({
-  page: { paddingVertical: 54, paddingHorizontal: 57, fontFamily: "Helvetica", fontSize: 11.25, lineHeight: 1.6, color: "#0f172a" },
+  page: { paddingVertical: 54, paddingHorizontal: 57, fontFamily: "Helvetica", fontSize: 11.25, lineHeight: 1.6, color: documentText },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 42 },
   logo: { width: 169, height: 33, objectFit: "contain", marginBottom: 12 },
-  issuer: { fontSize: 9, lineHeight: 1.65, color: "#475569" },
+  issuer: { fontSize: 9, lineHeight: 1.65, color: documentText },
   recipient: { maxWidth: 232, paddingTop: 48 },
   recipientName: { fontFamily: "Helvetica-Bold" },
-  recipientAddress: { color: "#334155" },
+  recipientAddress: { color: documentText },
   meta: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 30 },
   bold: { fontFamily: "Helvetica-Bold" },
   subject: { fontFamily: "Helvetica-Bold", marginBottom: 24 },
@@ -50,7 +51,7 @@ function inline(node: JSONContent, key: string): ReactNode {
   const style = { fontFamily: fontFor(node.marks), textDecoration } as const;
   const href = safeHref(node.marks?.find((mark) => mark.type === "link")?.attrs?.href);
   const text = <Text key={key} style={style}>{pdfText(node.text)}</Text>;
-  return href ? <Link key={key} src={href} style={{ color: "#0d4d75" }}>{text}</Link> : text;
+  return href ? <Link key={key} src={href} style={{ color: documentText }}>{text}</Link> : text;
 }
 
 function block(node: JSONContent, key: string, index = 0, ordered = false, inList = false): ReactNode {
