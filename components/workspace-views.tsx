@@ -11,8 +11,8 @@ export function ClientsView() {
 }
 
 export function InvoicesView() {
-  const { clients, company, refreshClients, error, setError } = useWorkspace();
-  return <InvoiceManager clients={clients} company={company} error={error} onError={setError} onClientsChanged={refreshClients}/>;
+  const { clients, clientsLoading, company, refreshClients, error, setError } = useWorkspace();
+  return <InvoiceManager clients={clients} clientsLoading={clientsLoading} company={company} error={error} onError={setError} onClientsChanged={refreshClients}/>;
 }
 
 export function LettersView() {

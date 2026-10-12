@@ -37,8 +37,9 @@ const tw = {
 
 type ModelContext = { registerTool: (tool: object, options: { signal: AbortSignal }) => void | Promise<void> };
 
-export function InvoiceManager({ clients, company, error, onError, onClientsChanged }: {
+export function InvoiceManager({ clients, clientsLoading, company, error, onError, onClientsChanged }: {
   clients: ClientRecord[];
+  clientsLoading: boolean;
   company: CompanySettings;
   error: string;
   onError: (message: string) => void;
@@ -50,7 +51,15 @@ export function InvoiceManager({ clients, company, error, onError, onClientsChan
   const [exportingPdf, setExportingPdf] = useState(false), [printing, setPrinting] = useState(false);
 
   const refresh = useCallback(async () => { try { const response = await apiFetch("/api/invoices"); const data = await response.json(); if (!response.ok) throw Error(data.error); setInvoices(data.invoices); } catch { onError("Impossible de charger vos factures. Réessayez dans un instant."); } finally { setLoading(false); } }, [onError]);
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (clientsLoading) return;
+    if (clients.length === 0) {
+      setInvoices([]);
+      setLoading(false);
+      return;
+    }
+    void refresh();
+  }, [clients.length, clientsLoading, refresh]);
 
   function start() { onError(""); setEditor({ ...blankInvoice(company), number: nextInvoiceNumber(invoices) }); }
   const startFromAssistant = useEffectEvent(start);
