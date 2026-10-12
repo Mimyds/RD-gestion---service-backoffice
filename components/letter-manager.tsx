@@ -12,7 +12,7 @@ import { LetterEditor } from "@/components/letter-editor";
 import { ScaledPage } from "@/components/scaled-page";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { clientAddress, clientName } from "@/lib/clients";
@@ -294,16 +294,22 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
         <DialogHeader className="border-b px-6 pt-6 pr-14 pb-4 max-sm:px-4 max-sm:pt-4 max-sm:pr-12"><DialogTitle>{editor?.id ? "Modifier le courrier" : "Nouveau courrier"}</DialogTitle></DialogHeader>
         {editor ? <div className="min-h-0 overflow-auto p-6 max-sm:p-4">
           <ErrorBanner className="mb-4" message={error} onDismiss={() => onError("")}/>
-          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4 max-sm:grid-cols-1">
-            <Field className="lg:col-span-2"><FieldLabel htmlFor="letter-subject">Objet</FieldLabel><Input id="letter-subject" value={editor.subject} onChange={(event) => field("subject", event.target.value)} placeholder="Objet du courrier"/></Field>
-            <Field><FieldLabel htmlFor="letter-status">Statut</FieldLabel><select id="letter-status" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={editor.status} onChange={(event) => field("status", event.target.value as LetterStatus)}><option value="brouillon">Brouillon</option><option value="finalisé">Finalisé</option><option value="envoyé">Envoyé</option><option value="archivé">Archivé</option></select></Field>
-            <Field><FieldLabel htmlFor="letter-date">Date</FieldLabel><DatePicker ariaLabel="Date du courrier" value={editor.date} onChange={(value) => field("date", value)}/></Field>
-            <Field><FieldLabel htmlFor="letter-client">Client associé</FieldLabel><select id="letter-client" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={editor.clientId || ""} onChange={(event) => selectClient(event.target.value)}><option value="">Aucun client</option>{clients.map((client) => <option key={client.id} value={client.id}>{clientName(client)}</option>)}</select></Field>
-            <Field><FieldLabel htmlFor="letter-recipient">Destinataire</FieldLabel><Input id="letter-recipient" value={editor.recipient} onChange={(event) => field("recipient", event.target.value)}/></Field>
-            <Field><FieldLabel htmlFor="letter-reference">Référence</FieldLabel><Input id="letter-reference" value={editor.reference} onChange={(event) => field("reference", event.target.value)} placeholder="Optionnelle"/></Field>
-            <Field className="lg:col-span-2"><FieldLabel htmlFor="letter-address">Adresse du destinataire</FieldLabel><Textarea id="letter-address" rows={3} value={editor.recipientAddress} onChange={(event) => field("recipientAddress", event.target.value)} placeholder="Une ligne par élément d’adresse"/></Field>
-          </div>
-          <LetterEditor key={editor.id || "new"} content={editor.content || emptyContent} onChange={(content) => field("content", content)}/>
+          <FieldSet className="mb-6 gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+            <FieldLegend className="px-1">Informations du courrier</FieldLegend>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 max-sm:grid-cols-1">
+              <Field className="lg:col-span-2"><FieldLabel htmlFor="letter-subject">Objet</FieldLabel><Input id="letter-subject" value={editor.subject} onChange={(event) => field("subject", event.target.value)} placeholder="Objet du courrier"/></Field>
+              <Field><FieldLabel htmlFor="letter-status">Statut</FieldLabel><select id="letter-status" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={editor.status} onChange={(event) => field("status", event.target.value as LetterStatus)}><option value="brouillon">Brouillon</option><option value="finalisé">Finalisé</option><option value="envoyé">Envoyé</option><option value="archivé">Archivé</option></select></Field>
+              <Field><FieldLabel htmlFor="letter-date">Date</FieldLabel><DatePicker ariaLabel="Date du courrier" value={editor.date} onChange={(value) => field("date", value)}/></Field>
+              <Field><FieldLabel htmlFor="letter-client">Client associé</FieldLabel><select id="letter-client" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={editor.clientId || ""} onChange={(event) => selectClient(event.target.value)}><option value="">Aucun client</option>{clients.map((client) => <option key={client.id} value={client.id}>{clientName(client)}</option>)}</select></Field>
+              <Field><FieldLabel htmlFor="letter-recipient">Destinataire</FieldLabel><Input id="letter-recipient" value={editor.recipient} onChange={(event) => field("recipient", event.target.value)}/></Field>
+              <Field><FieldLabel htmlFor="letter-reference">Référence</FieldLabel><Input id="letter-reference" value={editor.reference} onChange={(event) => field("reference", event.target.value)} placeholder="Optionnelle"/></Field>
+              <Field className="lg:col-span-2"><FieldLabel htmlFor="letter-address">Adresse du destinataire</FieldLabel><Textarea id="letter-address" rows={3} value={editor.recipientAddress} onChange={(event) => field("recipientAddress", event.target.value)} placeholder="Une ligne par élément d’adresse"/></Field>
+            </div>
+          </FieldSet>
+          <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+            <FieldLegend className="px-1">Contenu du courrier</FieldLegend>
+            <LetterEditor key={editor.id || "new"} content={editor.content || emptyContent} onChange={(content) => field("content", content)}/>
+          </FieldSet>
           <div className="mt-6 flex flex-wrap justify-end gap-2.5"><Button type="button" variant="outline" onClick={() => setPreview(editor)}><Eye data-icon="inline-start"/> Aperçu</Button><Button type="button" variant="outline" onClick={() => setEditor(null)}>Annuler</Button><Button type="button" disabled={saving} onClick={save}>{saving ? "Enregistrement…" : "Enregistrer le courrier"}</Button></div>
         </div> : null}
       </DialogContent>

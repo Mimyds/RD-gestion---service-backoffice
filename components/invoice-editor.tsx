@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import type { ClientRecord } from "@/components/client-manager";
 import { DatePicker } from "@/components/date-picker";
 import { ErrorBanner } from "@/components/error-banner";
+import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { clientAddress, clientName } from "@/lib/clients";
 import { apiFetch } from "@/lib/http";
 import { blankLine, type Invoice, type InvoiceLine, money, total } from "@/lib/invoices";
@@ -15,7 +16,7 @@ const blankClient = (): ClientDraft => ({ type: "entreprise", companyName: "", f
 const tw = {
   primary: "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-transparent bg-primary px-4 py-2.5 font-semibold whitespace-nowrap text-primary-foreground shadow-sm hover:bg-primary/90",
   outline: "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border bg-background px-4 py-2.5 font-semibold whitespace-nowrap text-foreground hover:bg-accent",
-  formScroll: "overflow-auto px-0.5 [&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:border-t [&_h3]:pt-3 [&_h3]:text-sm [&_label]:mb-3 [&_label]:flex [&_label]:flex-col [&_label]:gap-2 [&_label]:text-[13px] [&_label]:font-semibold [&_label]:text-muted-foreground [&_input]:min-w-0 [&_input]:rounded-lg [&_input]:border [&_input]:bg-background [&_input]:px-3 [&_input]:py-2.5 [&_input]:text-[15px] [&_input]:text-foreground [&_input]:outline-ring [&_select]:min-w-0 [&_select]:rounded-lg [&_select]:border [&_select]:bg-background [&_select]:px-3 [&_select]:py-2.5 [&_select]:text-[15px] [&_select]:text-foreground [&_textarea]:min-w-0 [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:bg-background [&_textarea]:px-3 [&_textarea]:py-2.5 [&_textarea]:text-[15px] [&_textarea]:text-foreground",
+  formScroll: "flex flex-col gap-4 overflow-auto px-0.5 [&_label]:flex [&_label]:flex-col [&_label]:gap-2 [&_label]:text-[13px] [&_label]:font-semibold [&_label]:text-muted-foreground [&_input]:min-w-0 [&_input]:rounded-lg [&_input]:border [&_input]:bg-background [&_input]:px-3 [&_input]:py-2.5 [&_input]:text-[15px] [&_input]:text-foreground [&_input]:outline-ring [&_select]:min-w-0 [&_select]:rounded-lg [&_select]:border [&_select]:bg-background [&_select]:px-3 [&_select]:py-2.5 [&_select]:text-[15px] [&_select]:text-foreground [&_textarea]:min-w-0 [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:bg-background [&_textarea]:px-3 [&_textarea]:py-2.5 [&_textarea]:text-[15px] [&_textarea]:text-foreground",
   formGrid: "grid grid-cols-2 gap-3 max-[700px]:grid-cols-1",
   lineForm: "grid grid-cols-[minmax(90px,1fr)_minmax(160px,2fr)_repeat(3,minmax(75px,1fr))_36px] items-end gap-2.5 max-[700px]:grid-cols-2",
   iconButton: "inline-grid place-items-center border-0 bg-transparent p-2.5 text-muted-foreground",
@@ -46,6 +47,8 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
   return <>
 <ErrorBanner message={error} onDismiss={() => onError("")}/>
 <div className={tw.formScroll}>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Informations de la facture</FieldLegend>
 <div className={tw.formGrid}>
 <label>Numéro de facture<input value={editor.number} onChange={e => field("number", e.target.value)}/>
 </label>
@@ -59,9 +62,13 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
 <label>Date d’échéance<DatePicker ariaLabel="Date d’échéance" value={editor.dueDate} onChange={value => field("dueDate", value)}/>
 </label>
 </div>
-<h3>Votre entreprise</h3>
+</FieldSet>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Votre entreprise</FieldLegend>
 <div className="mb-4 grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground [&_span]:whitespace-pre-line [&_strong]:text-foreground"><strong>{editor.issuer}</strong><span>{editor.issuerAddress}</span><span>{editor.issuerDetails}</span><small className="mt-1">{editor.status === "brouillon" ? "Ces informations se modifient dans Réglages et suivent les réglages tant que la facture est un brouillon." : "Informations figées au moment de l’envoi de la facture."}</small></div>
-<h3>Client</h3>
+</FieldSet>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Client</FieldLegend>
 <label>Choisir un client<select value={clientSelection} onChange={e => chooseClient(e.target.value)}>
 {clientSelection === LEGACY_CLIENT && <option value={LEGACY_CLIENT}>Client de cette facture (ancienne fiche)</option>}
 <option value={NEW_CLIENT}>+ Ajouter un nouveau client</option>
@@ -87,7 +94,10 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
 <label>Objet<input value={editor.purpose || ""} onChange={e => field("purpose", e.target.value)} placeholder="Prestation de service"/>
 </label>
 </div>
-<h3>Prestations</h3>{editor.lines.map((l, index) => <div className={tw.lineForm} key={index}>
+</FieldSet>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Prestations</FieldLegend>
+{editor.lines.map((l, index) => <div className={tw.lineForm} key={index}>
 <label>Période<input value={l.period || ""} onChange={e => line(index, "period", e.target.value)} placeholder="Période"/>
 </label>
 <label className="max-[700px]:col-span-full">Description<input value={l.description} onChange={e => line(index, "description", e.target.value)} placeholder="Prestation ou produit"/>
@@ -103,12 +113,16 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
 </button>
 </div>)}<button type="button" className={tw.textButton} onClick={() => field("lines", [...editor.lines, blankLine()])}>
 <Plus size={16}/> Ajouter une ligne</button>
+</FieldSet>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Notes et règlement</FieldLegend>
 <label>Notes et modalités<textarea value={editor.notes} onChange={e => field("notes", e.target.value)} placeholder="Conditions de règlement, coordonnées bancaires..."/>
 </label>
 <div className={tw.formTotal}>
 <span>Total TTC</span>
 <strong>{money(total(editor), editor.currency)}</strong>
 </div>
+</FieldSet>
 <div className={tw.formActions}>
 <button type="button" className={tw.outline} onClick={onCancel}>Annuler</button>
 <button type="button" className={tw.primary} disabled={saving} onClick={save}>{saving ? "Enregistrement…" : "Enregistrer la facture"}</button>
