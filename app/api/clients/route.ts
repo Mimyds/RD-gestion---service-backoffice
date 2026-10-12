@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticated, fail, isUuid, rateLimited, readJsonBody } from "@/lib/api";
+import { isValidSiret } from "@/lib/siret";
+import { isValidFrenchVatNumber, normalizeFrenchVatNumber } from "@/lib/vat-number";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +27,20 @@ function parse(input: Record<string, unknown>) {
     city: value("city", 120),
     country: value("country", 120) || "France",
     siret: value("siret", 30),
-    vat_number: value("vatNumber", 40),
+    vat_number: typeof input.vatNumber === "string" && input.vatNumber.trim() ? normalizeFrenchVatNumber(input.vatNumber).slice(0, 13) : null,
     notes: value("notes", 5_000)
   };
 }
+
+const hasInvalidSiret = (input: Record<string, unknown>) => {
+  const siret = typeof input.siret === "string" ? input.siret.trim() : "";
+  return Boolean(siret && !isValidSiret(siret));
+};
+
+const hasInvalidVatNumber = (input: Record<string, unknown>) => {
+  const vatNumber = typeof input.vatNumber === "string" ? input.vatNumber.trim() : "";
+  return Boolean(vatNumber && !isValidFrenchVatNumber(vatNumber));
+};
 
 async function readInput(request: Request) {
   const result = await readJsonBody<Record<string, unknown>>(request);
@@ -58,6 +70,8 @@ export async function POST(request: Request) {
   const limited = await rateLimited(db, "clients:write"); if (limited) return limited;
   const body = await readInput(request); if (body.response) return body.response;
   const input = body.data!;
+  if (hasInvalidSiret(input)) return fail("Le numéro SIRET doit être composé de 14 chiffres et être valide.", 400);
+  if (hasInvalidVatNumber(input)) return fail("Le numéro de TVA intracommunautaire doit être composé de FR et de 11 chiffres valides.", 400);
   const values = parse(input);
   if (!values) return fail("Le nom du client est requis.", 400);
   const { data, error } = await db.from("clients").insert({ user_id: user, ...values }).select(selection).single();
@@ -72,6 +86,8 @@ export async function PUT(request: Request) {
   const body = await readInput(request); if (body.response) return body.response;
   const input = body.data!;
   if (!isUuid(input.id)) return fail("Client introuvable.", 400);
+  if (hasInvalidSiret(input)) return fail("Le numéro SIRET doit être composé de 14 chiffres et être valide.", 400);
+  if (hasInvalidVatNumber(input)) return fail("Le numéro de TVA intracommunautaire doit être composé de FR et de 11 chiffres valides.", 400);
   const values = parse(input);
   if (!values) return fail("Le nom du client est requis.", 400);
   const { data, error } = await db.from("clients").update(values).eq("id", input.id).eq("user_id", user).select(selection).single();
