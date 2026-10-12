@@ -7,7 +7,7 @@ import { Building2, Mail, MapPin, Pencil, Phone, Plus, Search, StickyNote, Trash
 import { ErrorBanner } from "@/components/error-banner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp"
 import { Textarea } from "@/components/ui/textarea"
@@ -276,19 +276,38 @@ export function ClientManager({
         <DialogContent className="max-h-[92vh] w-[min(94vw,960px)] max-w-[960px] overflow-auto p-6 sm:max-w-[960px] max-sm:w-[98vw] max-sm:p-4">
           <DialogHeader><DialogTitle>{editor?.id ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>
           <ErrorBanner message={error} onDismiss={() => onError("")} />
-          {editor && <FieldGroup className="gap-5">
-            <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+          {editor && <FieldGroup className="gap-4">
+            <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Identité</FieldLegend>
+              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
               <Field><FieldLabel htmlFor="client-type">Type de client</FieldLabel><select className="h-9 rounded-lg border bg-background px-2.5 text-foreground outline-ring" id="client-type" value={editor.type} onChange={(event) => setField("type", event.target.value as ClientDraft["type"])}><option value="entreprise">Entreprise</option><option value="particulier">Particulier</option></select></Field>
               {editor.type === "entreprise" ? <Field><FieldLabel htmlFor="company-name">Raison sociale</FieldLabel><Input id="company-name" value={editor.companyName} onChange={(event) => setField("companyName", event.target.value)} /></Field> : <><Field><FieldLabel htmlFor="first-name">Prénom</FieldLabel><Input id="first-name" value={editor.firstName} onChange={(event) => setField("firstName", event.target.value)} /></Field><Field><FieldLabel htmlFor="last-name">Nom</FieldLabel><Input id="last-name" value={editor.lastName} onChange={(event) => setField("lastName", event.target.value)} /></Field></>}
+              </div>
+            </FieldSet>
+
+            <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Coordonnées</FieldLegend>
+              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
               <Field><FieldLabel htmlFor="client-email">E-mail</FieldLabel><Input id="client-email" type="email" value={editor.email} onChange={(event) => setField("email", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="client-phone">Téléphone</FieldLabel><Input id="client-phone" type="tel" value={editor.phone} onChange={(event) => setField("phone", event.target.value)} /></Field>
+              </div>
+            </FieldSet>
+
+            <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Adresse postale</FieldLegend>
+              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
               <Field><FieldLabel htmlFor="address-line-1">Adresse</FieldLabel><Input id="address-line-1" value={editor.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="address-line-2">Complément d’adresse</FieldLabel><Input id="address-line-2" value={editor.addressLine2} onChange={(event) => setField("addressLine2", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="postal-code">Code postal</FieldLabel><Input id="postal-code" value={editor.postalCode} onChange={(event) => setField("postalCode", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="client-city">Ville</FieldLabel><Input id="client-city" value={editor.city} onChange={(event) => setField("city", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="client-country">Pays</FieldLabel><Input id="client-country" value={editor.country} onChange={(event) => setField("country", event.target.value)} /></Field>
-              {editor.type === "entreprise" && <>
-                <Field className="col-span-2 max-sm:col-span-1" data-invalid={siretInvalid || undefined}>
+              </div>
+            </FieldSet>
+
+            {editor.type === "entreprise" && <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Informations légales</FieldLegend>
+              <div className="grid gap-4">
+                <Field data-invalid={siretInvalid || undefined}>
                   <FieldLabel htmlFor="client-siret">SIRET</FieldLabel>
                   <InputOTP
                     id="client-siret"
@@ -309,7 +328,7 @@ export function ClientManager({
                   </InputOTP>
                   {siretInvalid ? <FieldError>{siretError}</FieldError> : <FieldDescription>SIREN à 9 chiffres, puis NIC à 5 chiffres.</FieldDescription>}
                 </Field>
-                <Field className="col-span-2 max-sm:col-span-1" data-invalid={vatInvalid || undefined}>
+                <Field data-invalid={vatInvalid || undefined}>
                   <FieldLabel htmlFor="vat-number">N° de TVA intracommunautaire</FieldLabel>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="grid h-9 min-w-12 place-items-center rounded-md border bg-muted px-3 text-sm font-semibold" aria-hidden="true">FR</span>
@@ -333,9 +352,13 @@ export function ClientManager({
                   </div>
                   {vatInvalid ? <FieldError>{vatError}</FieldError> : <FieldDescription>FR, clé de contrôle à 2 chiffres, puis SIREN à 9 chiffres.</FieldDescription>}
                 </Field>
-              </>}
-            </div>
-            <Field><FieldLabel htmlFor="client-notes">Notes</FieldLabel><Textarea className="min-h-24" id="client-notes" value={editor.notes} onChange={(event) => setField("notes", event.target.value)} /></Field>
+              </div>
+            </FieldSet>}
+
+            <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Notes</FieldLegend>
+              <Field><FieldLabel className="sr-only" htmlFor="client-notes">Notes complémentaires</FieldLabel><Textarea className="min-h-24" id="client-notes" placeholder="Ajoutez ici toute information utile concernant ce client…" value={editor.notes} onChange={(event) => setField("notes", event.target.value)} /></Field>
+            </FieldSet>
             <div className="flex justify-end gap-2.5"><Button type="button" variant="outline" onClick={() => setEditor(null)}>Annuler</Button><Button type="button" disabled={saving} onClick={saveClient}>{saving ? "Enregistrement…" : "Enregistrer le client"}</Button></div>
           </FieldGroup>}
         </DialogContent>

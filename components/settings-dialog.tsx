@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ErrorBanner } from "@/components/error-banner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { type CompanySettings, SETTINGS_LIMITS } from "@/lib/company";
@@ -59,8 +59,8 @@ function SettingsForm({ initial, onCancel, onSaved }: { initial: CompanySettings
 
   return <FieldGroup className="gap-6">
     <ErrorBanner message={error} onDismiss={() => setError("")}/>
-    {sections.map((section) => <section key={section.title}>
-      <h3 className="mb-3 border-t pt-3 text-sm font-semibold">{section.title}</h3>
+    {sections.map((section) => <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4" key={section.title}>
+      <FieldLegend className="px-1">{section.title}</FieldLegend>
       <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
         {section.fields.map(({ key, label, multiline, type, description, wide }) => {
           const id = `settings-${key}`;
@@ -72,7 +72,7 @@ function SettingsForm({ initial, onCancel, onSaved }: { initial: CompanySettings
           </Field>;
         })}
       </div>
-    </section>)}
+    </FieldSet>)}
     <p className="rounded-lg bg-muted/40 px-4 py-3 text-xs leading-5 text-muted-foreground">Les modifications s’appliquent aux nouvelles factures, aux brouillons et aux courriers. Les factures envoyées ou payées conservent les informations en vigueur au moment de leur envoi.</p>
     <div className="flex justify-end gap-2.5">
       <Button type="button" variant="outline" onClick={onCancel}>Annuler</Button>
