@@ -1,16 +1,20 @@
 "use client"
 
 import { type ReactNode, useMemo, useState } from "react"
+import { REGEXP_ONLY_DIGITS } from "input-otp"
 import { Building2, Mail, MapPin, Pencil, Phone, Plus, Search, StickyNote, Trash2, UserRound, UsersRound } from "lucide-react"
 
 import { ErrorBanner } from "@/components/error-banner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp"
 import { Textarea } from "@/components/ui/textarea"
 import { clientAddress } from "@/lib/clients"
 import { apiFetch } from "@/lib/http"
+import { isValidSiret } from "@/lib/siret"
+import { frenchVatDigits, isValidFrenchVatNumber, normalizeFrenchVatNumber } from "@/lib/vat-number"
 
 export type ClientRecord = {
   id: string
@@ -83,7 +87,7 @@ const draftOf = (client: ClientRecord): ClientDraft => ({
   city: client.city || "",
   country: client.country || "France",
   siret: client.siret || "",
-  vatNumber: client.vat_number || "",
+  vatNumber: client.vat_number ? normalizeFrenchVatNumber(client.vat_number) : "",
   notes: client.notes || "",
 })
 
@@ -100,6 +104,8 @@ function DetailRow({ icon, label, children }: { icon: ReactNode; label: string; 
 }
 
 const missing = <span className="text-muted-foreground">Non renseigné</span>
+const siretGroups = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11, 12, 13]]
+const vatGroups = [[0, 1], [2, 3, 4], [5, 6, 7], [8, 9, 10]]
 
 export function ClientManager({
   clients,
@@ -120,6 +126,11 @@ export function ClientManager({
   const [detailsId, setDetailsId] = useState<string | null>(null)
   const details = clients.find((client) => client.id === detailsId) ?? null
   const [saving, setSaving] = useState(false)
+  const siretInvalid = Boolean(editor?.type === "entreprise" && editor.siret && !isValidSiret(editor.siret))
+  const siretError = editor?.siret.length === 14 ? "Ce numéro SIRET n’est pas valide." : "Le SIRET doit comporter 14 chiffres."
+  const vatDigits = frenchVatDigits(editor?.vatNumber || "")
+  const vatInvalid = Boolean(editor?.type === "entreprise" && editor.vatNumber && !isValidFrenchVatNumber(editor.vatNumber))
+  const vatError = vatDigits.length === 11 ? "Ce numéro de TVA intracommunautaire n’est pas valide." : "Le numéro de TVA doit comporter FR suivi de 11 chiffres."
   const shown = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     if (!normalized) return clients
@@ -136,6 +147,14 @@ export function ClientManager({
 
   async function saveClient() {
     if (!editor) return
+    if (editor.type === "entreprise" && editor.siret && !isValidSiret(editor.siret)) {
+      onError(siretError)
+      return
+    }
+    if (editor.type === "entreprise" && editor.vatNumber && !isValidFrenchVatNumber(editor.vatNumber)) {
+      onError(vatError)
+      return
+    }
     setSaving(true)
     onError("")
     try {
@@ -254,7 +273,7 @@ export function ClientManager({
       </Dialog>
 
       <Dialog open={Boolean(editor)} onOpenChange={(open) => !open && setEditor(null)}>
-        <DialogContent className="max-h-[92vh] w-[min(92vw,860px)] max-w-[860px] overflow-auto p-6 max-sm:w-[98vw] max-sm:p-4">
+        <DialogContent className="max-h-[92vh] w-[min(94vw,960px)] max-w-[960px] overflow-auto p-6 sm:max-w-[960px] max-sm:w-[98vw] max-sm:p-4">
           <DialogHeader><DialogTitle>{editor?.id ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>
           <ErrorBanner message={error} onDismiss={() => onError("")} />
           {editor && <FieldGroup className="gap-5">
@@ -268,7 +287,53 @@ export function ClientManager({
               <Field><FieldLabel htmlFor="postal-code">Code postal</FieldLabel><Input id="postal-code" value={editor.postalCode} onChange={(event) => setField("postalCode", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="client-city">Ville</FieldLabel><Input id="client-city" value={editor.city} onChange={(event) => setField("city", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="client-country">Pays</FieldLabel><Input id="client-country" value={editor.country} onChange={(event) => setField("country", event.target.value)} /></Field>
-              {editor.type === "entreprise" && <><Field><FieldLabel htmlFor="client-siret">SIRET</FieldLabel><Input id="client-siret" value={editor.siret} onChange={(event) => setField("siret", event.target.value)} /></Field><Field><FieldLabel htmlFor="vat-number">N° de TVA</FieldLabel><Input id="vat-number" value={editor.vatNumber} onChange={(event) => setField("vatNumber", event.target.value)} /></Field></>}
+              {editor.type === "entreprise" && <>
+                <Field className="col-span-2 max-sm:col-span-1" data-invalid={siretInvalid || undefined}>
+                  <FieldLabel htmlFor="client-siret">SIRET</FieldLabel>
+                  <InputOTP
+                    id="client-siret"
+                    aria-label="SIRET : SIREN à 9 chiffres suivi du NIC à 5 chiffres"
+                    aria-invalid={siretInvalid || undefined}
+                    containerClassName="flex-wrap"
+                    maxLength={14}
+                    pattern={REGEXP_ONLY_DIGITS}
+                    value={editor.siret}
+                    onChange={(value) => setField("siret", value)}
+                  >
+                    {siretGroups.map((group, groupIndex) => <span className="contents" key={group[0]}>
+                      {groupIndex > 0 ? <InputOTPSeparator /> : null}
+                      <InputOTPGroup>
+                        {group.map((index) => <InputOTPSlot aria-invalid={siretInvalid || undefined} index={index} key={index} />)}
+                      </InputOTPGroup>
+                    </span>)}
+                  </InputOTP>
+                  {siretInvalid ? <FieldError>{siretError}</FieldError> : <FieldDescription>SIREN à 9 chiffres, puis NIC à 5 chiffres.</FieldDescription>}
+                </Field>
+                <Field className="col-span-2 max-sm:col-span-1" data-invalid={vatInvalid || undefined}>
+                  <FieldLabel htmlFor="vat-number">N° de TVA intracommunautaire</FieldLabel>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="grid h-9 min-w-12 place-items-center rounded-md border bg-muted px-3 text-sm font-semibold" aria-hidden="true">FR</span>
+                    <InputOTP
+                      id="vat-number"
+                      aria-label="11 chiffres du numéro de TVA intracommunautaire"
+                      aria-invalid={vatInvalid || undefined}
+                      containerClassName="flex-wrap"
+                      maxLength={11}
+                      pattern={REGEXP_ONLY_DIGITS}
+                      value={vatDigits}
+                      onChange={(value) => setField("vatNumber", value ? `FR${value}` : "")}
+                    >
+                      {vatGroups.map((group, groupIndex) => <span className="contents" key={group[0]}>
+                        {groupIndex > 0 ? <InputOTPSeparator /> : null}
+                        <InputOTPGroup>
+                          {group.map((index) => <InputOTPSlot aria-invalid={vatInvalid || undefined} index={index} key={index} />)}
+                        </InputOTPGroup>
+                      </span>)}
+                    </InputOTP>
+                  </div>
+                  {vatInvalid ? <FieldError>{vatError}</FieldError> : <FieldDescription>FR, clé de contrôle à 2 chiffres, puis SIREN à 9 chiffres.</FieldDescription>}
+                </Field>
+              </>}
             </div>
             <Field><FieldLabel htmlFor="client-notes">Notes</FieldLabel><Textarea className="min-h-24" id="client-notes" value={editor.notes} onChange={(event) => setField("notes", event.target.value)} /></Field>
             <div className="flex justify-end gap-2.5"><Button type="button" variant="outline" onClick={() => setEditor(null)}>Annuler</Button><Button type="button" disabled={saving} onClick={saveClient}>{saving ? "Enregistrement…" : "Enregistrer le client"}</Button></div>
