@@ -13,12 +13,12 @@ function csp(nonce: string) {
     // Missing or invalid configuration is handled before authentication.
   }
   const connectSources = isDev
-    ? "'self' http: https: ws: wss:"
-    : ["'self'", supabaseOrigin, supabaseOrigin.replace(/^https:/, "wss:")].filter(Boolean).join(" ");
+    ? "'self' data: http: https: ws: wss:"
+    : ["'self'", "data:", supabaseOrigin, supabaseOrigin.replace(/^https:/, "wss:")].filter(Boolean).join(" ");
 
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' blob: data:",
     "font-src 'self' data:",
@@ -26,6 +26,7 @@ function csp(nonce: string) {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    "frame-src 'self' blob:",
     "frame-ancestors 'none'",
     "worker-src 'self' blob:",
     ...(isDev ? [] : ["upgrade-insecure-requests"]),
