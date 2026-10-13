@@ -16,6 +16,7 @@ type DatePickerProps = {
   value: string
   onChange: (value: string) => void
   ariaLabel: string
+  ariaInvalid?: boolean
 }
 
 function parseDate(value: string) {
@@ -31,7 +32,7 @@ function serializeDate(date: Date) {
   return `${year}-${month}-${day}`
 }
 
-export function DatePicker({ value, onChange, ariaLabel }: DatePickerProps) {
+export function DatePicker({ value, onChange, ariaLabel, ariaInvalid }: DatePickerProps) {
   const [open, setOpen] = React.useState(false)
   const selected = parseDate(value)
 
@@ -43,6 +44,7 @@ export function DatePicker({ value, onChange, ariaLabel }: DatePickerProps) {
           variant="outline"
           className="w-full justify-start"
           aria-label={ariaLabel}
+          aria-invalid={ariaInvalid || undefined}
         >
           <CalendarIcon data-icon="inline-start" />
           {selected

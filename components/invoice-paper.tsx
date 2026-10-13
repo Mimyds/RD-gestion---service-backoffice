@@ -1,41 +1,41 @@
 import Image from "next/image";
 import { DEFAULT_COMPANY } from "@/lib/company";
 import { formatDate } from "@/lib/dates";
-import { type Invoice, money, operationCategoryLabel, subtotal, taxBreakdown, total } from "@/lib/invoices";
+import { type Invoice, money, subtotal, taxBreakdown, total } from "@/lib/invoices";
 import { cn } from "@/lib/utils";
 import { sirenFromSiret } from "@/lib/siret";
 
 const paper = "relative flex min-h-[1040px] flex-col border bg-white px-12 pt-14 pb-8 font-sans text-[#001B48] shadow-lg";
 
-export function InvoicePaper({ invoice }: { invoice: Invoice }) {
+export function InvoicePaper({ invoice, issuerCity }: { invoice: Invoice; issuerCity: string }) {
   return <div className={cn(paper, "w-[794px]")}>
-<div className="flex items-start justify-between gap-6">
-<div className="w-[48%]">
+<div className="grid grid-cols-[48%_44%] items-start justify-between gap-10">
+<div>
 <Image src="/logo-web.svg" alt="RD Gestion & Services" width={285} height={56} priority className="h-[56px] w-[285px] max-w-full object-contain object-left-top"/>
-</div>
-<div className="w-[42%] text-[#001B48] [&_p]:my-1 [&_p]:whitespace-pre-line [&_p]:text-xs [&_p]:font-semibold [&_p]:leading-[1.35] [&_strong]:mb-1.5 [&_strong]:block [&_strong]:text-[13px] [&_strong]:uppercase">
+<div className="mt-5 text-[#001B48] [&_p]:my-1 [&_p]:whitespace-pre-line [&_p]:text-[11px] [&_p]:leading-[1.4] [&_strong]:mb-1.5 [&_strong]:block [&_strong]:text-xs [&_strong]:uppercase">
 <strong>{invoice.issuer}</strong>
 <p>{invoice.issuerAddress}</p>
 <p>{invoice.issuerDetails}</p>
 <p>{invoice.issuerSiret ? `SIREN : ${sirenFromSiret(invoice.issuerSiret)}\nSIRET : ${invoice.issuerSiret}` : "SIRET non renseigné"}{invoice.issuerVatNumber ? `\nN° TVA : ${invoice.issuerVatNumber}` : ""}</p>
 </div>
 </div>
-<h2 className="my-9 mt-20 text-[22px] font-normal tracking-[0.01em]">FACTURE N° {invoice.number}</h2>
-<div className="mb-12 grid grid-cols-[1fr_44%] items-start gap-10">
-<div className="m-0 grid gap-4 text-[13px] uppercase">
-<span>Émise le : {formatDate(invoice.issueDate)}</span>
-<span>Prestation réalisée le : {formatDate(invoice.serviceDate || invoice.issueDate)}</span>
-<span>SUIVI PAR : {invoice.followedBy || "—"}</span>
-<span>POUR : {invoice.purpose || "PRESTATION DE SERVICE"}</span>
-<span>NATURE : {operationCategoryLabel(invoice.operationCategory || "services")}</span>
-{invoice.purchaseOrderNumber ? <span>BON DE COMMANDE : {invoice.purchaseOrderNumber}</span> : null}
-</div>
-<div className="m-0 uppercase [&_p]:my-1 [&_p]:whitespace-pre-line [&_p]:text-[13px] [&_strong]:text-[13px] [&_strong]:font-normal">
+<div className="pl-14 uppercase [&_p]:my-1 [&_p]:whitespace-pre-line [&_p]:text-[11px] [&_p]:leading-[1.4] [&_strong]:mb-2 [&_strong]:block [&_strong]:text-[13px]">
 <strong>{invoice.client}</strong>
 <p>{invoice.clientAddress}</p>
 <p>{invoice.clientEmail}</p>
 {invoice.clientSiret ? <p>SIREN : {sirenFromSiret(invoice.clientSiret)}{"\n"}SIRET : {invoice.clientSiret}{invoice.clientVatNumber ? `\nN° TVA : ${invoice.clientVatNumber}` : ""}</p> : null}
 {invoice.deliveryAddress ? <p>Adresse de livraison :{"\n"}{invoice.deliveryAddress}</p> : null}
+</div>
+</div>
+<h2 className="mt-12 mb-8 text-[19px] font-normal tracking-[0.01em]">FACTURE N° {invoice.number}</h2>
+<div className="mb-12 grid grid-cols-2 items-start gap-x-12 text-[12px] uppercase">
+<div className="m-0 grid gap-3">
+<span>{issuerCity || "Ville non renseignée"}, le {formatDate(invoice.issueDate)}</span>
+</div>
+<div className="m-0 grid gap-3">
+<span>SUIVI PAR : {invoice.followedBy || "—"}</span>
+<span>POUR : {invoice.purpose || "PRESTATION DE SERVICE"}</span>
+{invoice.purchaseOrderNumber ? <span>BON DE COMMANDE : {invoice.purchaseOrderNumber}</span> : null}
 </div>
 </div>
 <table className="w-full table-fixed border-collapse text-left [&_th]:border [&_th]:border-[#d2d2d2] [&_th]:bg-[#0c4d74] [&_th]:px-2 [&_th]:py-2.5 [&_th]:text-center [&_th]:text-[10px] [&_th]:font-normal [&_th]:text-white [&_th]:uppercase [&_th:nth-child(1)]:w-[14%] [&_th:nth-child(2)]:w-[30%] [&_th:nth-child(3)]:w-[8%] [&_th:nth-child(4)]:w-[17%] [&_th:nth-child(5)]:w-[10%] [&_th:nth-child(6)]:w-[21%] [&_td]:h-20 [&_td]:border [&_td]:border-[#d2d2d2] [&_td]:px-2 [&_td]:py-2.5 [&_td]:text-[10px] [&_td]:leading-[1.35] [&_td]:align-top">

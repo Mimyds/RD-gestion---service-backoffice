@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { authenticated, fail, isUuid, rateLimited, readJsonBody } from "@/lib/api";
 import { isAllowedLockedStatusChange, isInvoiceLocked } from "@/lib/invoice-lifecycle";
+import { validateInvoice } from "@/lib/invoice-validation";
 import { issuerSnapshot, loadSettings, storedSnapshot } from "@/lib/settings";
-import { isValidSiret } from "@/lib/siret";
-import { isValidFrenchVatNumber, normalizeFrenchVatNumber } from "@/lib/vat-number";
+import { normalizeFrenchVatNumber } from "@/lib/vat-number";
 export const dynamic = "force-dynamic";
 const filled = (value: unknown) => typeof value === "string" && value.trim() ? value : "";
 export async function GET() {
@@ -21,8 +21,6 @@ export async function GET() {
     })
   });
 }
-const sized = (value: unknown, max: number) => typeof value === "string" && value.length <= max;
-function valid(i: any) { return i && typeof i.number === "string" && i.number.trim().length > 0 && i.number.length <= 80 && typeof i.client === "string" && i.client.trim().length > 0 && i.client.length <= 200 && ["entreprise","particulier"].includes(i.clientType) && sized(i.clientAddress, 1_000) && sized(i.clientEmail, 254) && sized(i.clientSiret, 30) && (!i.clientSiret || isValidSiret(i.clientSiret)) && sized(i.clientVatNumber, 20) && (!i.clientVatNumber || isValidFrenchVatNumber(i.clientVatNumber)) && sized(i.deliveryAddress, 1_000) && sized(i.purchaseOrderNumber, 120) && sized(i.notes, 5_000) && (i.followedBy === undefined || sized(i.followedBy, 200)) && (i.purpose === undefined || sized(i.purpose, 300)) && ["services","biens","mixte"].includes(i.operationCategory) && ["brouillon","envoyée","payée"].includes(i.status) && ["EUR","USD"].includes(i.currency) && /^\d{4}-\d{2}-\d{2}$/.test(i.issueDate) && /^\d{4}-\d{2}-\d{2}$/.test(i.serviceDate) && /^\d{4}-\d{2}-\d{2}$/.test(i.dueDate) && Array.isArray(i.lines) && i.lines.length > 0 && i.lines.length <= 100 && i.lines.every((l: any) => typeof l.description === "string" && l.description.trim() && l.description.length <= 500 && (l.period === undefined || sized(l.period, 100)) && Number.isFinite(l.quantity) && l.quantity > 0 && l.quantity <= 1_000_000 && Number.isFinite(l.unitPrice) && l.unitPrice >= 0 && l.unitPrice <= 1_000_000_000 && Number.isFinite(l.taxRate) && l.taxRate >= 0 && l.taxRate <= 100); }
 async function write(request: Request, updating: boolean) {
   const { db, user } = await authenticated(); if (!user) return fail("Connexion requise.", 401);
   const limited = await rateLimited(db, "invoices:write"); if (limited) return limited;
@@ -61,7 +59,10 @@ async function write(request: Request, updating: boolean) {
     }
   }
 
-  if (!valid(input) || JSON.stringify(input).length > 100000) return fail("Vérifiez les champs de la facture.", 400);
+  const fieldErrors = validateInvoice(input);
+  if (Object.keys(fieldErrors).length || JSON.stringify(input).length > 100000) {
+    return NextResponse.json({ error: "Certains champs de la facture sont invalides.", fieldErrors }, { status: 400 });
+  }
   if (updating && input.status === "payée") return fail("Une facture doit être marquée envoyée avant d’être payée.", 409);
   const profile = await loadSettings(db, user);
   if (profile.error) return fail("Réglages indisponibles.", 503);

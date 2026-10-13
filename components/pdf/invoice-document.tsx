@@ -2,7 +2,7 @@ import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/render
 import { assetUrl, pdfText } from "@/components/pdf/pdf-text";
 import { DEFAULT_COMPANY } from "@/lib/company";
 import { formatDate } from "@/lib/dates";
-import { type Invoice, money, operationCategoryLabel, subtotal, taxBreakdown, total } from "@/lib/invoices";
+import { type Invoice, money, subtotal, taxBreakdown, total } from "@/lib/invoices";
 import { sirenFromSiret } from "@/lib/siret";
 
 // Mirrors components/invoice-paper.tsx (screen preview); sizes are the preview's pixels × 0.75.
@@ -12,16 +12,18 @@ const columnWidths = ["14%", "30%", "8%", "17%", "10%", "21%"];
 const styles = StyleSheet.create({
   page: { paddingTop: 42, paddingHorizontal: 36, paddingBottom: 60, fontFamily: "Helvetica", color: blue },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  issuer: { width: "48%", color: blue },
   logo: { width: 214, height: 42, objectFit: "contain" },
-  issuer: { width: "42%", color: blue },
-  issuerName: { fontFamily: "Helvetica-Bold", fontSize: 9.75, textTransform: "uppercase", marginBottom: 4.5 },
-  issuerLine: { fontFamily: "Helvetica-Bold", fontSize: 9, lineHeight: 1.35, marginVertical: 0.75 },
-  title: { fontSize: 16.5, marginTop: 60, marginBottom: 27, letterSpacing: 0.15 },
-  info: { flexDirection: "row", justifyContent: "space-between", marginBottom: 36 },
-  infoLeft: { flexGrow: 1, fontSize: 9.75, textTransform: "uppercase" },
-  infoLine: { marginBottom: 12 },
-  client: { width: "44%", fontSize: 9.75, textTransform: "uppercase" },
+  issuerDetails: { marginTop: 15 },
+  issuerName: { fontFamily: "Helvetica-Bold", fontSize: 9, textTransform: "uppercase", marginBottom: 4.5 },
+  issuerLine: { fontSize: 8.25, lineHeight: 1.4, marginVertical: 0.75 },
+  client: { width: "42%", paddingLeft: 36, fontSize: 8.25, lineHeight: 1.4, textTransform: "uppercase" },
+  clientName: { marginBottom: 4.5, fontFamily: "Helvetica-Bold", fontSize: 9.75 },
   clientLine: { marginVertical: 0.75 },
+  title: { fontSize: 14.25, marginTop: 36, marginBottom: 24, letterSpacing: 0.15 },
+  info: { flexDirection: "row", justifyContent: "space-between", marginBottom: 36, fontSize: 9, textTransform: "uppercase" },
+  infoColumn: { width: "47%" },
+  infoLine: { marginBottom: 9 },
   table: { borderLeftWidth: 0.75, borderTopWidth: 0.75, borderColor: border },
   row: { flexDirection: "row" },
   th: { flexGrow: 1, flexBasis: 0, backgroundColor: "#0c4d74", color: "#ffffff", fontSize: 7.5, textTransform: "uppercase", textAlign: "center", paddingVertical: 7.5, paddingHorizontal: 4, borderRightWidth: 0.75, borderBottomWidth: 0.75, borderColor: border },
@@ -36,37 +38,39 @@ const styles = StyleSheet.create({
   footer: { position: "absolute", left: 36, right: 36, bottom: 24, borderTopWidth: 0.75, borderColor: "#6d9ab6", paddingTop: 6, fontSize: 6, lineHeight: 1.35, textAlign: "center", textTransform: "uppercase" },
 });
 
-export function InvoiceDocument({ invoice }: { invoice: Invoice }) {
+export function InvoiceDocument({ invoice, issuerCity }: { invoice: Invoice; issuerCity: string }) {
   const currency = invoice.currency;
   return <Document title={`Facture ${invoice.number}`} author={invoice.issuer} language="fr">
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
-        <Image src={assetUrl("/rd-logo.png")} style={styles.logo}/>
         <View style={styles.issuer}>
-          <Text style={styles.issuerName}>{pdfText(invoice.issuer)}</Text>
-          <Text style={styles.issuerLine}>{pdfText(invoice.issuerAddress)}</Text>
-          <Text style={styles.issuerLine}>{pdfText(invoice.issuerDetails)}</Text>
-          <Text style={styles.issuerLine}>{pdfText(invoice.issuerSiret ? `SIREN : ${sirenFromSiret(invoice.issuerSiret)}\nSIRET : ${invoice.issuerSiret}${invoice.issuerVatNumber ? `\nN° TVA : ${invoice.issuerVatNumber}` : ""}` : "SIRET non renseigné")}</Text>
+          <Image src={assetUrl("/rd-logo.png")} style={styles.logo}/>
+          <View style={styles.issuerDetails}>
+            <Text style={styles.issuerName}>{pdfText(invoice.issuer)}</Text>
+            <Text style={styles.issuerLine}>{pdfText(invoice.issuerAddress)}</Text>
+            <Text style={styles.issuerLine}>{pdfText(invoice.issuerDetails)}</Text>
+            <Text style={styles.issuerLine}>{pdfText(invoice.issuerSiret ? `SIREN : ${sirenFromSiret(invoice.issuerSiret)}\nSIRET : ${invoice.issuerSiret}${invoice.issuerVatNumber ? `\nN° TVA : ${invoice.issuerVatNumber}` : ""}` : "SIRET non renseigné")}</Text>
+          </View>
+        </View>
+        <View style={styles.client}>
+          <Text style={styles.clientName}>{pdfText(invoice.client)}</Text>
+          <Text style={styles.clientLine}>{pdfText(invoice.clientAddress)}</Text>
+          <Text style={styles.clientLine}>{pdfText(invoice.clientEmail)}</Text>
+          {invoice.clientSiret ? <Text style={styles.clientLine}>{pdfText(`SIREN : ${sirenFromSiret(invoice.clientSiret)}\nSIRET : ${invoice.clientSiret}${invoice.clientVatNumber ? `\nN° TVA : ${invoice.clientVatNumber}` : ""}`)}</Text> : null}
+          {invoice.deliveryAddress ? <Text style={styles.clientLine}>{pdfText(`Adresse de livraison :\n${invoice.deliveryAddress}`)}</Text> : null}
         </View>
       </View>
 
       <Text style={styles.title}>FACTURE N° {pdfText(invoice.number)}</Text>
 
       <View style={styles.info}>
-        <View style={styles.infoLeft}>
-          <Text style={styles.infoLine}>Émise le : {formatDate(invoice.issueDate)}</Text>
-          <Text style={styles.infoLine}>Prestation réalisée le : {formatDate(invoice.serviceDate || invoice.issueDate)}</Text>
+        <View style={styles.infoColumn}>
+          <Text style={styles.infoLine}>{pdfText(issuerCity) || "Ville non renseignée"}, le {formatDate(invoice.issueDate)}</Text>
+        </View>
+        <View style={styles.infoColumn}>
           <Text style={styles.infoLine}>Suivi par : {pdfText(invoice.followedBy) || "—"}</Text>
           <Text style={styles.infoLine}>Pour : {pdfText(invoice.purpose) || "PRESTATION DE SERVICE"}</Text>
-          <Text style={styles.infoLine}>Nature : {operationCategoryLabel(invoice.operationCategory || "services")}</Text>
           {invoice.purchaseOrderNumber ? <Text style={styles.infoLine}>Bon de commande : {pdfText(invoice.purchaseOrderNumber)}</Text> : null}
-        </View>
-        <View style={styles.client}>
-          <Text style={styles.clientLine}>{pdfText(invoice.client)}</Text>
-          <Text style={styles.clientLine}>{pdfText(invoice.clientAddress)}</Text>
-          <Text style={styles.clientLine}>{pdfText(invoice.clientEmail)}</Text>
-          {invoice.clientSiret ? <Text style={styles.clientLine}>{pdfText(`SIREN : ${sirenFromSiret(invoice.clientSiret)}\nSIRET : ${invoice.clientSiret}${invoice.clientVatNumber ? `\nN° TVA : ${invoice.clientVatNumber}` : ""}`)}</Text> : null}
-          {invoice.deliveryAddress ? <Text style={styles.clientLine}>{pdfText(`Adresse de livraison :\n${invoice.deliveryAddress}`)}</Text> : null}
         </View>
       </View>
 

@@ -88,7 +88,7 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
     setPrinting(true);
     onError("");
     try {
-      await printPdf(() => invoicePdf(invoice));
+      await printPdf(() => invoicePdf(invoice, company.letterCity));
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "Impression impossible.");
     } finally {
@@ -100,7 +100,7 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
     setExportingPdf(true);
     onError("");
     try {
-      await downloadPdf(() => invoicePdf(withCurrentCompany(preview, company)), fileName(`facture-${preview.number}`, "facture"));
+      await downloadPdf(() => invoicePdf(withCurrentCompany(preview, company), company.letterCity), fileName(`facture-${preview.number}`, "facture"));
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "Enregistrement du PDF impossible.");
     } finally {
@@ -202,7 +202,7 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
 </button> : <span className="inline-flex items-center gap-1.5 px-2 text-sm text-muted-foreground"><LockKeyhole size={16}/> Facture verrouillée</span>}
 </div>
 <div className={tw.previewScroll}>
-<ScaledPage><InvoicePaper invoice={withCurrentCompany(preview, company)}/></ScaledPage>
+<ScaledPage><InvoicePaper invoice={withCurrentCompany(preview, company)} issuerCity={company.letterCity}/></ScaledPage>
 </div>
 </>}</DialogContent>
 </Dialog>
