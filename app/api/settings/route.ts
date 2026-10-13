@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { authenticated, fail, rateLimited, readJsonBody } from "@/lib/api";
 import { type CompanySettings, SETTINGS_LIMITS } from "@/lib/company";
 import { loadSettings, settingsToRow } from "@/lib/settings";
+import { isValidSiret } from "@/lib/siret";
+import { isValidFrenchVatNumber, normalizeFrenchVatNumber } from "@/lib/vat-number";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,9 @@ function parse(input: unknown): CompanySettings | string {
   }
   if (required.some((key) => !values[key])) return "La raison sociale et l’adresse sont requises.";
   if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) return "L’adresse e-mail n’est pas valide.";
+  if (values.siret && !isValidSiret(values.siret)) return "Le numéro SIRET de l’entreprise n’est pas valide.";
+  if (values.vatNumber && !isValidFrenchVatNumber(values.vatNumber)) return "Le numéro de TVA de l’entreprise n’est pas valide.";
+  if (values.vatNumber) values.vatNumber = normalizeFrenchVatNumber(values.vatNumber);
   return values;
 }
 

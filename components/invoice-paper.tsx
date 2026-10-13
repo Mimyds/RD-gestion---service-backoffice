@@ -1,8 +1,9 @@
 import Image from "next/image";
 import { DEFAULT_COMPANY } from "@/lib/company";
 import { formatDate } from "@/lib/dates";
-import { type Invoice, lineTotal, money, subtotal, total } from "@/lib/invoices";
+import { type Invoice, money, operationCategoryLabel, subtotal, taxBreakdown, total } from "@/lib/invoices";
 import { cn } from "@/lib/utils";
+import { sirenFromSiret } from "@/lib/siret";
 
 const paper = "relative flex min-h-[1040px] flex-col border bg-white px-12 pt-14 pb-8 font-sans text-[#001B48] shadow-lg";
 
@@ -16,35 +17,40 @@ export function InvoicePaper({ invoice }: { invoice: Invoice }) {
 <strong>{invoice.issuer}</strong>
 <p>{invoice.issuerAddress}</p>
 <p>{invoice.issuerDetails}</p>
+<p>{invoice.issuerSiret ? `SIREN : ${sirenFromSiret(invoice.issuerSiret)}\nSIRET : ${invoice.issuerSiret}` : "SIRET non renseigné"}{invoice.issuerVatNumber ? `\nN° TVA : ${invoice.issuerVatNumber}` : ""}</p>
 </div>
 </div>
 <h2 className="my-9 mt-20 text-[22px] font-normal tracking-[0.01em]">FACTURE N° {invoice.number}</h2>
 <div className="mb-12 grid grid-cols-[1fr_44%] items-start gap-10">
 <div className="m-0 grid gap-4 text-[13px] uppercase">
 <span>Émise le : {formatDate(invoice.issueDate)}</span>
+<span>Prestation réalisée le : {formatDate(invoice.serviceDate || invoice.issueDate)}</span>
 <span>SUIVI PAR : {invoice.followedBy || "—"}</span>
 <span>POUR : {invoice.purpose || "PRESTATION DE SERVICE"}</span>
+<span>NATURE : {operationCategoryLabel(invoice.operationCategory || "services")}</span>
+{invoice.purchaseOrderNumber ? <span>BON DE COMMANDE : {invoice.purchaseOrderNumber}</span> : null}
 </div>
 <div className="m-0 uppercase [&_p]:my-1 [&_p]:whitespace-pre-line [&_p]:text-[13px] [&_strong]:text-[13px] [&_strong]:font-normal">
 <strong>{invoice.client}</strong>
 <p>{invoice.clientAddress}</p>
 <p>{invoice.clientEmail}</p>
+{invoice.clientSiret ? <p>SIREN : {sirenFromSiret(invoice.clientSiret)}{"\n"}SIRET : {invoice.clientSiret}{invoice.clientVatNumber ? `\nN° TVA : ${invoice.clientVatNumber}` : ""}</p> : null}
+{invoice.deliveryAddress ? <p>Adresse de livraison :{"\n"}{invoice.deliveryAddress}</p> : null}
 </div>
 </div>
-<table className="w-full table-fixed border-collapse text-left [&_th]:border [&_th]:border-[#d2d2d2] [&_th]:bg-[#0c4d74] [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-center [&_th]:text-xs [&_th]:font-normal [&_th]:text-white [&_th]:uppercase [&_td]:h-20 [&_td]:border [&_td]:border-[#d2d2d2] [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-xs [&_td]:leading-[1.35] [&_td]:align-top">
+<table className="w-full table-fixed border-collapse text-left [&_th]:border [&_th]:border-[#d2d2d2] [&_th]:bg-[#0c4d74] [&_th]:px-2 [&_th]:py-2.5 [&_th]:text-center [&_th]:text-[10px] [&_th]:font-normal [&_th]:text-white [&_th]:uppercase [&_th:nth-child(1)]:w-[14%] [&_th:nth-child(2)]:w-[30%] [&_th:nth-child(3)]:w-[8%] [&_th:nth-child(4)]:w-[17%] [&_th:nth-child(5)]:w-[10%] [&_th:nth-child(6)]:w-[21%] [&_td]:h-20 [&_td]:border [&_td]:border-[#d2d2d2] [&_td]:px-2 [&_td]:py-2.5 [&_td]:text-[10px] [&_td]:leading-[1.35] [&_td]:align-top">
 <thead>
 <tr>
-<th>Période</th>
-<th>Description</th>
-<th>Prix unitaire</th>
-<th>Total</th>
+<th>Période</th><th>Description</th><th>Qté</th><th>PU HT</th><th>TVA</th><th>Total HT</th>
 </tr>
 </thead>
 <tbody>{invoice.lines.map((l, n) => <tr key={n}>
 <td>{l.period || "—"}</td>
 <td>{l.description}</td>
-<td>{l.quantity !== 1 ? `${l.quantity} × ` : ""}{money(l.unitPrice, invoice.currency)}</td>
-<td>{money(lineTotal(l), invoice.currency)}</td>
+<td>{l.quantity}</td>
+<td>{money(l.unitPrice, invoice.currency)}</td>
+<td>{l.taxRate} %</td>
+<td>{money(l.quantity * l.unitPrice, invoice.currency)}</td>
 </tr>)}</tbody>
 </table>
 <div className="mt-4 grid grid-cols-[41%_59%] items-start">
@@ -61,6 +67,7 @@ export function InvoicePaper({ invoice }: { invoice: Invoice }) {
 <span>Total TVA</span>
 <strong>{money(total(invoice) - subtotal(invoice), invoice.currency)}</strong>
 </div>
+{taxBreakdown(invoice).map(([rate, amounts]) => <div className="text-[10px]! normal-case!" key={rate}><span>Base {rate} % : {money(amounts.taxable, invoice.currency)}</span><strong>TVA : {money(amounts.tax, invoice.currency)}</strong></div>)}
 <div>
 <span>Autres coûts</span>
 <strong>{money(0, invoice.currency)}</strong>

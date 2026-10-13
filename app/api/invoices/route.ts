@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { authenticated, fail, isUuid, rateLimited, readJsonBody } from "@/lib/api";
 import { isAllowedLockedStatusChange, isInvoiceLocked } from "@/lib/invoice-lifecycle";
 import { issuerSnapshot, loadSettings, storedSnapshot } from "@/lib/settings";
+import { isValidSiret } from "@/lib/siret";
+import { isValidFrenchVatNumber, normalizeFrenchVatNumber } from "@/lib/vat-number";
 export const dynamic = "force-dynamic";
 const filled = (value: unknown) => typeof value === "string" && value.trim() ? value : "";
 export async function GET() {
@@ -15,12 +17,12 @@ export async function GET() {
       const payload = row.payload as Record<string, unknown>;
       // Drafts always follow the current settings; other invoices keep their snapshot.
       const company = row.status === "brouillon" ? current : storedSnapshot(payload, current);
-      return { ...payload, ...company, notes: filled(payload.notes) || profile.settings.legalMentions, bankDetails: filled(payload.bankDetails) || profile.settings.bankDetails, id: row.id, clientId: row.client_id, status: row.status, number: row.number };
+      return { ...payload, ...company, serviceDate: filled(payload.serviceDate) || filled(payload.issueDate), operationCategory: filled(payload.operationCategory) || "services", clientType: filled(payload.clientType) || "entreprise", clientSiret: filled(payload.clientSiret), clientVatNumber: filled(payload.clientVatNumber), deliveryAddress: filled(payload.deliveryAddress), purchaseOrderNumber: filled(payload.purchaseOrderNumber), notes: filled(payload.notes) || profile.settings.legalMentions, bankDetails: filled(payload.bankDetails) || profile.settings.bankDetails, id: row.id, clientId: row.client_id, status: row.status, number: row.number };
     })
   });
 }
 const sized = (value: unknown, max: number) => typeof value === "string" && value.length <= max;
-function valid(i: any) { return i && typeof i.number === "string" && i.number.trim().length > 0 && i.number.length <= 80 && typeof i.client === "string" && i.client.trim().length > 0 && i.client.length <= 200 && sized(i.clientAddress, 1_000) && sized(i.clientEmail, 254) && sized(i.notes, 5_000) && (i.followedBy === undefined || sized(i.followedBy, 200)) && (i.purpose === undefined || sized(i.purpose, 300)) && ["brouillon","envoyée","payée"].includes(i.status) && ["EUR","USD"].includes(i.currency) && /^\d{4}-\d{2}-\d{2}$/.test(i.issueDate) && /^\d{4}-\d{2}-\d{2}$/.test(i.dueDate) && Array.isArray(i.lines) && i.lines.length > 0 && i.lines.length <= 100 && i.lines.every((l: any) => typeof l.description === "string" && l.description.trim() && l.description.length <= 500 && (l.period === undefined || sized(l.period, 100)) && Number.isFinite(l.quantity) && l.quantity >= 0 && l.quantity <= 1_000_000 && Number.isFinite(l.unitPrice) && l.unitPrice >= 0 && l.unitPrice <= 1_000_000_000 && Number.isFinite(l.taxRate) && l.taxRate >= 0 && l.taxRate <= 100); }
+function valid(i: any) { return i && typeof i.number === "string" && i.number.trim().length > 0 && i.number.length <= 80 && typeof i.client === "string" && i.client.trim().length > 0 && i.client.length <= 200 && ["entreprise","particulier"].includes(i.clientType) && sized(i.clientAddress, 1_000) && sized(i.clientEmail, 254) && sized(i.clientSiret, 30) && (!i.clientSiret || isValidSiret(i.clientSiret)) && sized(i.clientVatNumber, 20) && (!i.clientVatNumber || isValidFrenchVatNumber(i.clientVatNumber)) && sized(i.deliveryAddress, 1_000) && sized(i.purchaseOrderNumber, 120) && sized(i.notes, 5_000) && (i.followedBy === undefined || sized(i.followedBy, 200)) && (i.purpose === undefined || sized(i.purpose, 300)) && ["services","biens","mixte"].includes(i.operationCategory) && ["brouillon","envoyée","payée"].includes(i.status) && ["EUR","USD"].includes(i.currency) && /^\d{4}-\d{2}-\d{2}$/.test(i.issueDate) && /^\d{4}-\d{2}-\d{2}$/.test(i.serviceDate) && /^\d{4}-\d{2}-\d{2}$/.test(i.dueDate) && Array.isArray(i.lines) && i.lines.length > 0 && i.lines.length <= 100 && i.lines.every((l: any) => typeof l.description === "string" && l.description.trim() && l.description.length <= 500 && (l.period === undefined || sized(l.period, 100)) && Number.isFinite(l.quantity) && l.quantity > 0 && l.quantity <= 1_000_000 && Number.isFinite(l.unitPrice) && l.unitPrice >= 0 && l.unitPrice <= 1_000_000_000 && Number.isFinite(l.taxRate) && l.taxRate >= 0 && l.taxRate <= 100); }
 async function write(request: Request, updating: boolean) {
   const { db, user } = await authenticated(); if (!user) return fail("Connexion requise.", 401);
   const limited = await rateLimited(db, "invoices:write"); if (limited) return limited;
@@ -63,6 +65,14 @@ async function write(request: Request, updating: boolean) {
   if (updating && input.status === "payée") return fail("Une facture doit être marquée envoyée avant d’être payée.", 409);
   const profile = await loadSettings(db, user);
   if (profile.error) return fail("Réglages indisponibles.", 503);
+  if (input.status === "envoyée" && !profile.settings.siret) return fail("Renseignez le SIRET de l’entreprise dans les réglages avant d’envoyer la facture.", 409);
+  if (input.status === "envoyée" && input.clientType === "entreprise" && !input.clientSiret) return fail("Renseignez le SIRET du client professionnel avant d’envoyer la facture.", 409);
+  if (input.status === "envoyée" && input.clientType === "entreprise" && !input.clientAddress.trim()) return fail("Renseignez l’adresse de facturation du client professionnel avant d’envoyer la facture.", 409);
+  if (input.status === "envoyée" && !input.notes.trim()) return fail("Renseignez les conditions de règlement et les mentions légales avant d’envoyer la facture.", 409);
+  const appliesVat = input.lines.some((line: { taxRate: number }) => line.taxRate > 0);
+  if (input.status === "envoyée" && appliesVat && !profile.settings.vatNumber) return fail("Renseignez le numéro de TVA de l’entreprise avant de facturer de la TVA.", 409);
+  if (input.status === "envoyée" && appliesVat && /TVA\s+non\s+applicable/i.test(input.notes)) return fail("La facture applique de la TVA mais contient une mention « TVA non applicable ».", 409);
+  if (input.status === "envoyée" && !appliesVat && !/TVA/i.test(input.notes)) return fail("Précisez dans les mentions légales le motif d’exonération ou de non-application de la TVA.", 409);
   let company = issuerSnapshot(profile.settings);
   if (updating) {
     // Drafts use the current company settings until they are sent.
@@ -71,10 +81,17 @@ async function write(request: Request, updating: boolean) {
   const payload = {
     number: input.number.trim(),
     client: input.client.trim(),
+    clientType: input.clientType,
     clientAddress: input.clientAddress.trim(),
     clientEmail: input.clientEmail.trim(),
+    clientSiret: input.clientSiret.trim(),
+    clientVatNumber: input.clientVatNumber.trim() ? normalizeFrenchVatNumber(input.clientVatNumber) : "",
+    deliveryAddress: input.deliveryAddress.trim(),
+    purchaseOrderNumber: input.purchaseOrderNumber.trim(),
     issueDate: input.issueDate,
+    serviceDate: input.serviceDate,
     dueDate: input.dueDate,
+    operationCategory: input.operationCategory,
     status: input.status,
     currency: input.currency,
     lines: input.lines.map((line: any) => ({

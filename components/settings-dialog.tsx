@@ -20,6 +20,8 @@ const sections: { title: string; fields: FieldConfig[] }[] = [
       { key: "address", label: "Adresse", multiline: true, description: "Une ligne par élément d’adresse si besoin." },
       { key: "email", label: "E-mail", type: "email" },
       { key: "phone", label: "Téléphone", type: "tel" },
+      { key: "siret", label: "SIRET", description: "14 chiffres identifiant l’établissement émetteur." },
+      { key: "vatNumber", label: "N° de TVA intracommunautaire", description: "À laisser vide si l’entreprise n’en possède pas." },
       { key: "letterCity", label: "Ville des courriers", description: "Utilisée dans « Ville, le … » en tête des courriers." },
     ],
   },

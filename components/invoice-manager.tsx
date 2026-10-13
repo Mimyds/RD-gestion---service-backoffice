@@ -80,7 +80,7 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
 
   function editInvoice(invoice: Invoice) { onError(""); setEditor(withCurrentCompany(invoice, company)); setPreview(null); }
   async function saved() { setEditor(null); await Promise.all([refresh(), onClientsChanged()]); }
-  async function status(i: Invoice, value: Invoice["status"]) { try { const r = await apiFetch("/api/invoices", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...i, status: value }) }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Le statut n’a pas pu être modifié."); } }
+  async function status(i: Invoice, value: Invoice["status"]) { try { const r = await apiFetch("/api/invoices", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...i, status: value }) }); const result = await r.json(); if (!r.ok) throw Error(result.error || "Le statut n’a pas pu être modifié."); await refresh(); setPreview(null); } catch (cause) { onError(cause instanceof Error ? cause.message : "Le statut n’a pas pu être modifié."); } }
   async function remove(i: Invoice) { if (!confirm(`Supprimer la facture ${i.number} ?`)) return; try { const r = await apiFetch(`/api/invoices?id=${encodeURIComponent(i.id)}`, { method: "DELETE" }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Suppression impossible."); } }
   async function printInvoice() {
     if (!preview) return;

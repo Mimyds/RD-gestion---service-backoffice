@@ -9,10 +9,10 @@ import { clientAddress, clientName } from "@/lib/clients";
 import { apiFetch } from "@/lib/http";
 import { blankLine, type Invoice, type InvoiceLine, money, total } from "@/lib/invoices";
 
-type ClientDraft = { type: "entreprise" | "particulier"; companyName: string; firstName: string; lastName: string; email: string; phone: string; addressLine1: string; addressLine2: string; postalCode: string; city: string; country: string };
+type ClientDraft = { type: "entreprise" | "particulier"; companyName: string; firstName: string; lastName: string; email: string; phone: string; addressLine1: string; addressLine2: string; postalCode: string; city: string; country: string; siret: string; vatNumber: string };
 const NEW_CLIENT = "__new__";
 const LEGACY_CLIENT = "__legacy__";
-const blankClient = (): ClientDraft => ({ type: "entreprise", companyName: "", firstName: "", lastName: "", email: "", phone: "", addressLine1: "", addressLine2: "", postalCode: "", city: "", country: "France" });
+const blankClient = (): ClientDraft => ({ type: "entreprise", companyName: "", firstName: "", lastName: "", email: "", phone: "", addressLine1: "", addressLine2: "", postalCode: "", city: "", country: "France", siret: "", vatNumber: "" });
 const tw = {
   primary: "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-transparent bg-primary px-4 py-2.5 font-semibold whitespace-nowrap text-primary-foreground shadow-sm hover:bg-primary/90",
   outline: "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border bg-background px-4 py-2.5 font-semibold whitespace-nowrap text-foreground hover:bg-accent",
@@ -38,11 +38,11 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
   const [clientDraft, setClientDraft] = useState<ClientDraft>(blankClient);
   const [saving, setSaving] = useState(false);
 
-  function chooseClient(value: string) { setClientSelection(value); if (value === NEW_CLIENT) { setClientDraft(blankClient()); setEditor(p => ({ ...p, clientId: null, client: "", clientAddress: "", clientEmail: "" })); return; } const selected = clients.find(client => client.id === value); if (selected) setEditor(p => ({ ...p, clientId: selected.id, client: clientName(selected), clientAddress: clientAddress(selected), clientEmail: selected.email || "" })); }
+  function chooseClient(value: string) { setClientSelection(value); if (value === NEW_CLIENT) { setClientDraft(blankClient()); setEditor(p => ({ ...p, clientId: null, client: "", clientType: "entreprise", clientAddress: "", clientEmail: "", clientSiret: "", clientVatNumber: "" })); return; } const selected = clients.find(client => client.id === value); if (selected) setEditor(p => ({ ...p, clientId: selected.id, client: clientName(selected), clientType: selected.type, clientAddress: clientAddress(selected), clientEmail: selected.email || "", clientSiret: selected.siret || "", clientVatNumber: selected.vat_number || "" })); }
   function clientField<K extends keyof ClientDraft>(key: K, value: ClientDraft[K]) { setClientDraft(current => ({ ...current, [key]: value })); }
   function field<K extends keyof Invoice>(key: K, value: Invoice[K]) { setEditor(p => ({ ...p, [key]: value })); }
   function line(index: number, key: keyof InvoiceLine, value: string | number) { setEditor(p => ({ ...p, lines: p.lines.map((l, n) => n === index ? { ...l, [key]: value } : l) })); }
-  async function save() { if (!editor.number.trim() || editor.lines.some(l => !l.description.trim())) { onError("Renseignez le client, le numéro et chaque prestation."); return; } setSaving(true); onError(""); try { let invoice = editor; if (clientSelection === NEW_CLIENT) { const clientResponse = await apiFetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(clientDraft) }); const clientData = await clientResponse.json(); if (!clientResponse.ok) throw Error(clientData.error || "Enregistrement du client impossible."); const created = clientData.client as ClientRecord; invoice = { ...editor, clientId: created.id, client: clientName(created), clientAddress: clientAddress(created), clientEmail: created.email || "" }; setEditor(invoice); setClientSelection(created.id); } if (!invoice.client.trim()) throw Error("Sélectionnez ou ajoutez un client."); const r = await apiFetch("/api/invoices", { method: invoice.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(invoice) }); const d = await r.json(); if (!r.ok) throw Error(d.error || "Enregistrement impossible."); await onSaved(); } catch (e) { onError(e instanceof Error ? e.message : "Enregistrement impossible."); } finally { setSaving(false); } }
+  async function save() { if (!editor.number.trim() || editor.lines.some(l => !l.description.trim())) { onError("Renseignez le client, le numéro et chaque prestation."); return; } setSaving(true); onError(""); try { let invoice = editor; if (clientSelection === NEW_CLIENT) { const clientResponse = await apiFetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(clientDraft) }); const clientData = await clientResponse.json(); if (!clientResponse.ok) throw Error(clientData.error || "Enregistrement du client impossible."); const created = clientData.client as ClientRecord; invoice = { ...editor, clientId: created.id, client: clientName(created), clientType: created.type, clientAddress: clientAddress(created), clientEmail: created.email || "", clientSiret: created.siret || "", clientVatNumber: created.vat_number || "" }; setEditor(invoice); setClientSelection(created.id); } if (!invoice.client.trim()) throw Error("Sélectionnez ou ajoutez un client."); const r = await apiFetch("/api/invoices", { method: invoice.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(invoice) }); const d = await r.json(); if (!r.ok) throw Error(d.error || "Enregistrement impossible."); await onSaved(); } catch (e) { onError(e instanceof Error ? e.message : "Enregistrement impossible."); } finally { setSaving(false); } }
 
   return <>
 <ErrorBanner message={error} onDismiss={() => onError("")}/>
@@ -59,13 +59,19 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
 </label>
 <label>Date d’émission<DatePicker ariaLabel="Date d’émission" value={editor.issueDate} onChange={value => field("issueDate", value)}/>
 </label>
+<label>Date de la prestation<DatePicker ariaLabel="Date de réalisation de la prestation" value={editor.serviceDate} onChange={value => field("serviceDate", value)}/>
+</label>
 <label>Date d’échéance<DatePicker ariaLabel="Date d’échéance" value={editor.dueDate} onChange={value => field("dueDate", value)}/>
+</label>
+<label>Nature de l’opération<select value={editor.operationCategory} onChange={e => field("operationCategory", e.target.value as Invoice["operationCategory"])}><option value="services">Prestations de services</option><option value="biens">Livraisons de biens</option><option value="mixte">Biens et services</option></select>
+</label>
+<label>N° de bon de commande<input value={editor.purchaseOrderNumber || ""} onChange={e => field("purchaseOrderNumber", e.target.value)} placeholder="Si communiqué par le client"/>
 </label>
 </div>
 </FieldSet>
 <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
 <FieldLegend className="px-1">Votre entreprise</FieldLegend>
-<div className="mb-4 grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground [&_span]:whitespace-pre-line [&_strong]:text-foreground"><strong>{editor.issuer}</strong><span>{editor.issuerAddress}</span><span>{editor.issuerDetails}</span><small className="mt-1">{editor.status === "brouillon" ? "Ces informations se modifient dans Réglages et suivent les réglages tant que la facture est un brouillon." : "Informations figées au moment de l’envoi de la facture."}</small></div>
+<div className="mb-4 grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground [&_span]:whitespace-pre-line [&_strong]:text-foreground"><strong>{editor.issuer}</strong><span>{editor.issuerAddress}</span><span>{editor.issuerDetails}</span><span>{editor.issuerSiret ? `SIRET : ${editor.issuerSiret}` : "SIRET non renseigné"}{editor.issuerVatNumber ? `\nN° TVA : ${editor.issuerVatNumber}` : ""}</span><small className="mt-1">{editor.status === "brouillon" ? "Ces informations se modifient dans Réglages et suivent les réglages tant que la facture est un brouillon." : "Informations figées au moment de l’envoi de la facture."}</small></div>
 </FieldSet>
 <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
 <FieldLegend className="px-1">Client</FieldLegend>
@@ -86,8 +92,10 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
 <label>Pays<input value={clientDraft.country} onChange={e => clientField("country", e.target.value)} placeholder="France"/></label>
 <label>E-mail<input type="email" value={clientDraft.email} onChange={e => clientField("email", e.target.value)} placeholder="client@exemple.fr"/></label>
 <label>Téléphone<input type="tel" value={clientDraft.phone} onChange={e => clientField("phone", e.target.value)} placeholder="+33…"/></label>
+{clientDraft.type === "entreprise" && <><label>SIRET<input inputMode="numeric" maxLength={14} value={clientDraft.siret} onChange={e => clientField("siret", e.target.value.replace(/\D/g, ""))} placeholder="14 chiffres"/></label><label>N° de TVA<input value={clientDraft.vatNumber} onChange={e => clientField("vatNumber", e.target.value)} placeholder="FR…"/></label></>}
 </div>
-</div> : <div className="mb-4 grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground [&_span]:whitespace-pre-line [&_strong]:text-foreground"><strong>{editor.client}</strong><span>{editor.clientAddress || "Adresse non renseignée"}</span><span>{editor.clientEmail || "E-mail non renseigné"}</span></div>}
+</div> : <div className="mb-4 grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground [&_span]:whitespace-pre-line [&_strong]:text-foreground"><strong>{editor.client}</strong><span>{editor.clientAddress || "Adresse non renseignée"}</span><span>{editor.clientEmail || "E-mail non renseigné"}</span>{editor.clientSiret ? <span>SIRET : {editor.clientSiret}{editor.clientVatNumber ? `\nN° TVA : ${editor.clientVatNumber}` : ""}</span> : null}</div>}
+{editor.operationCategory !== "services" && <label>Adresse de livraison<textarea rows={3} value={editor.deliveryAddress || ""} onChange={e => field("deliveryAddress", e.target.value)} placeholder="Si différente de l’adresse de facturation"/></label>}
 <div className={tw.formGrid}>
 <label>Suivi par<input value={editor.followedBy || ""} onChange={e => field("followedBy", e.target.value)} placeholder="Nom du contact"/>
 </label>
