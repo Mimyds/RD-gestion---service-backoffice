@@ -1,6 +1,10 @@
 const SIRET_PATTERN = /^\d{14}$/
 const LA_POSTE_SIREN = "356000000"
 
+export function siretDigits(value: string) {
+  return value.replace(/\D/g, "").slice(0, 14)
+}
+
 export function isValidSiret(value: string) {
   if (!SIRET_PATTERN.test(value)) return false
   if (value === "00000000000000") return false

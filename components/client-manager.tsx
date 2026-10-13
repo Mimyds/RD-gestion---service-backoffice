@@ -13,7 +13,7 @@ import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/comp
 import { Textarea } from "@/components/ui/textarea"
 import { clientAddress } from "@/lib/clients"
 import { apiFetch } from "@/lib/http"
-import { isValidSiret } from "@/lib/siret"
+import { isValidSiret, siretDigits } from "@/lib/siret"
 import { frenchVatDigits, isValidFrenchVatNumber, normalizeFrenchVatNumber } from "@/lib/vat-number"
 
 export type ClientRecord = {
@@ -126,10 +126,11 @@ export function ClientManager({
   const [detailsId, setDetailsId] = useState<string | null>(null)
   const details = clients.find((client) => client.id === detailsId) ?? null
   const [saving, setSaving] = useState(false)
-  const siretInvalid = Boolean(editor?.type === "entreprise" && editor.siret && !isValidSiret(editor.siret))
+  const [validationAttempted, setValidationAttempted] = useState(false)
+  const siretInvalid = Boolean(validationAttempted && editor?.type === "entreprise" && editor.siret && !isValidSiret(editor.siret))
   const siretError = editor?.siret.length === 14 ? "Ce numéro SIRET n’est pas valide." : "Le SIRET doit comporter 14 chiffres."
   const vatDigits = frenchVatDigits(editor?.vatNumber || "")
-  const vatInvalid = Boolean(editor?.type === "entreprise" && editor.vatNumber && !isValidFrenchVatNumber(editor.vatNumber))
+  const vatInvalid = Boolean(validationAttempted && editor?.type === "entreprise" && editor.vatNumber && !isValidFrenchVatNumber(editor.vatNumber))
   const vatError = vatDigits.length === 11 ? "Ce numéro de TVA intracommunautaire n’est pas valide." : "Le numéro de TVA doit comporter FR suivi de 11 chiffres."
   const shown = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -147,6 +148,7 @@ export function ClientManager({
 
   async function saveClient() {
     if (!editor) return
+    setValidationAttempted(true)
     if (editor.type === "entreprise" && editor.siret && !isValidSiret(editor.siret)) {
       onError(siretError)
       return
@@ -176,8 +178,15 @@ export function ClientManager({
 
   function editClient(client: ClientRecord) {
     onError("")
+    setValidationAttempted(false)
     setDetailsId(null)
     setEditor(draftOf(client))
+  }
+
+  function createClient() {
+    onError("")
+    setValidationAttempted(false)
+    setEditor(emptyClient())
   }
 
   async function deleteClient(client: ClientRecord) {
@@ -202,7 +211,7 @@ export function ClientManager({
           <h1 className="mb-3 text-5xl leading-none font-medium tracking-[-0.045em] max-sm:text-[39px]">Clients</h1>
           <p className="m-0 leading-6 text-muted-foreground">Centralisez les coordonnées utilisées dans vos factures et courriers.</p>
         </div>
-        <Button size="lg" onClick={() => { onError(""); setEditor(emptyClient()) }}>
+        <Button size="lg" onClick={createClient}>
           <Plus data-icon="inline-start" /> Nouveau client
         </Button>
       </div>
@@ -226,7 +235,7 @@ export function ClientManager({
             <span className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-accent text-ring"><UsersRound /></span>
             <h3 className="mb-2 text-lg font-semibold text-foreground">{clients.length ? "Aucun client trouvé" : "Votre répertoire est vide"}</h3>
             <p className="mx-auto mb-5 max-w-96 text-sm leading-6">{clients.length ? "Essayez une autre recherche." : "Ajoutez votre premier client pour le retrouver lors de la création d’une facture."}</p>
-            {!clients.length && <Button variant="outline" onClick={() => setEditor(emptyClient())}><Plus data-icon="inline-start" /> Ajouter un client</Button>}
+            {!clients.length && <Button variant="outline" onClick={createClient}><Plus data-icon="inline-start" /> Ajouter un client</Button>}
           </div>
         ) : (
           <div className="overflow-auto">
@@ -315,6 +324,7 @@ export function ClientManager({
                     aria-invalid={siretInvalid || undefined}
                     containerClassName="flex-wrap"
                     maxLength={14}
+                    pasteTransformer={siretDigits}
                     pattern={REGEXP_ONLY_DIGITS}
                     value={editor.siret}
                     onChange={(value) => setField("siret", value)}
@@ -338,6 +348,7 @@ export function ClientManager({
                       aria-invalid={vatInvalid || undefined}
                       containerClassName="flex-wrap"
                       maxLength={11}
+                      pasteTransformer={frenchVatDigits}
                       pattern={REGEXP_ONLY_DIGITS}
                       value={vatDigits}
                       onChange={(value) => setField("vatNumber", value ? `FR${value}` : "")}

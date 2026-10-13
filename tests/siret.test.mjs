@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { isValidSiret } from "../lib/siret.ts"
+import { isValidSiret, siretDigits } from "../lib/siret.ts"
 
 test("accepts a valid 14-digit SIRET", () => {
   assert.equal(isValidSiret("73282932000074"), true)
@@ -13,4 +13,9 @@ test("rejects malformed or invalid SIRET numbers", () => {
   assert.equal(isValidSiret("732 829 320 00074"), false)
   assert.equal(isValidSiret("ABCDEFGHIJKLMN"), false)
   assert.equal(isValidSiret("00000000000000"), false)
+})
+
+test("extracts the fourteen digits from a formatted SIRET", () => {
+  assert.equal(siretDigits("732 829 320 00074"), "73282932000074")
+  assert.equal(siretDigits("SIRET : 732-829-320-00074"), "73282932000074")
 })

@@ -18,4 +18,5 @@ test("rejects malformed VAT numbers and invalid control keys", () => {
 test("normalizes display and extracts the eleven editable digits", () => {
   assert.equal(normalizeFrenchVatNumber("fr40 303 265 045"), "FR40303265045")
   assert.equal(frenchVatDigits("FR40303265045"), "40303265045")
+  assert.equal(frenchVatDigits("FR 40 303 265 045"), "40303265045")
 })

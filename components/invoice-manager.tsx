@@ -30,7 +30,7 @@ const tw = {
   empty: "px-5 py-14 text-center text-muted-foreground",
   emptyIcon: "mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-accent text-ring",
   iconButton: "inline-grid place-items-center border-0 bg-transparent p-2.5 text-muted-foreground",
-  editorDialog: "max-h-[92vh] w-[min(92vw,860px)] max-w-[860px] overflow-auto p-6 max-[700px]:w-[98vw] max-[700px]:p-4",
+  editorDialog: "max-h-[92vh] w-[min(94vw,960px)] max-w-[960px] overflow-auto p-6 sm:max-w-[960px] max-sm:w-[98vw] max-sm:p-4",
   previewDialog: "grid h-[94vh] w-[min(96vw,1120px)] max-w-[1120px] grid-rows-[auto_auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[1120px] max-[700px]:h-[96dvh] max-[700px]:w-[calc(100vw-1rem)]",
   previewScroll: "min-h-0 overflow-auto bg-muted/40 p-6 max-[700px]:p-3",
 } as const;

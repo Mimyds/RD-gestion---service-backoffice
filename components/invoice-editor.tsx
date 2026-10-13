@@ -116,7 +116,7 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
 </FieldSet>
 <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
 <FieldLegend className="px-1">Notes et règlement</FieldLegend>
-<label>Notes et modalités<textarea value={editor.notes} onChange={e => field("notes", e.target.value)} placeholder="Conditions de règlement, coordonnées bancaires..."/>
+<label>Notes et modalités<textarea className="min-h-44 resize-y" rows={8} value={editor.notes} onChange={e => field("notes", e.target.value)} placeholder="Conditions de règlement, coordonnées bancaires..."/>
 </label>
 <div className={tw.formTotal}>
 <span>Total TTC</span>
