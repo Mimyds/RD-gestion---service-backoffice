@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticated, fail, isUuid, rateLimited, readJsonBody } from "@/lib/api";
 import { localDate } from "@/lib/dates";
+import { isAllowedDraftLetterStatus, isAllowedLockedLetterStatusChange, isLetterLocked, type LetterStatus } from "@/lib/letter-lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ type LetterInput = {
   content?: unknown;
 };
 
-const statuses = new Set(["brouillon", "finalisé", "envoyé", "archivé"]);
+const statuses = new Set<LetterStatus>(["brouillon", "finalisé", "envoyé", "archivé"]);
 const nodeTypes = new Set(["doc", "paragraph", "text", "heading", "bulletList", "orderedList", "listItem", "blockquote", "codeBlock", "hardBreak", "horizontalRule"]);
 const markTypes = new Set(["bold", "italic", "strike", "underline", "code", "link"]);
 
@@ -78,7 +79,7 @@ function text(value: unknown, max: number) {
 
 function parse(input: LetterInput) {
   const subject = text(input.subject, 200);
-  const status = typeof input.status === "string" && statuses.has(input.status) ? input.status : "brouillon";
+  const status = typeof input.status === "string" && statuses.has(input.status as LetterStatus) ? input.status as LetterStatus : "brouillon";
   const content = input.content;
   if (!subject || !validContent(content)) return null;
 
@@ -126,17 +127,51 @@ async function write(request: Request, updating: boolean) {
   const body = await readJsonBody<LetterInput>(request, 160_000); if (body.response) return body.response;
   const input = body.data!;
 
+  if (updating && !isUuid(input?.id)) return fail("Courrier introuvable.", 400);
+  if (!updating && input?.status !== "brouillon") return fail("Un nouveau courrier doit être enregistré comme brouillon.", 409);
+
+  if (updating) {
+    const existing = await db.from("letters").select("status,payload,client_id,subject").eq("id", input.id).eq("user_id", user).maybeSingle();
+    if (existing.error || !existing.data) return fail("Courrier introuvable.", 404);
+
+    if (isLetterLocked(existing.data.status)) {
+      if (!isAllowedLockedLetterStatusChange(existing.data.status, input?.status)) {
+        return fail("Ce courrier est verrouillé et ne peut plus être modifié.", 409);
+      }
+
+      const result = await db
+        .from("letters")
+        .update({ status: input.status })
+        .eq("id", input.id)
+        .eq("user_id", user)
+        .eq("status", existing.data.status)
+        .select("id")
+        .maybeSingle();
+      if (result.error || !result.data) return fail("Le statut du courrier a changé. Rechargez la page.", 409);
+      return NextResponse.json({
+        letter: {
+          ...(existing.data.payload as Record<string, unknown>),
+          id: result.data.id,
+          clientId: existing.data.client_id,
+          subject: existing.data.subject,
+          status: input.status,
+        },
+      });
+    }
+  }
+
   const parsed = parse(input);
   if (!parsed) return fail("Renseignez l’objet et le contenu du courrier.", 400);
-  if (updating && !isUuid(input.id)) return fail("Courrier introuvable.", 400);
+  if (!isAllowedDraftLetterStatus(parsed.status)) return fail("Un brouillon doit être finalisé avant d’être envoyé.", 409);
   const clientId = isUuid(input.clientId) ? input.clientId : null;
   const values = { client_id: clientId, ...parsed };
 
   const result = updating
-    ? await db.from("letters").update(values).eq("id", input.id).eq("user_id", user).select("id").single()
+    ? await db.from("letters").update(values).eq("id", input.id).eq("user_id", user).eq("status", "brouillon").select("id").maybeSingle()
     : await db.from("letters").insert({ user_id: user, ...values }).select("id").single();
 
   if (result.error) return fail("Enregistrement du courrier impossible.", 409);
+  if (!result.data) return fail("Le statut du courrier a changé. Rechargez la page.", 409);
   return NextResponse.json({ letter: { id: result.data.id, clientId, ...parsed.payload, subject: parsed.subject, status: parsed.status } }, { status: updating ? 200 : 201 });
 }
 
@@ -154,6 +189,8 @@ export async function DELETE(request: Request) {
   const limited = await rateLimited(db, "letters:write"); if (limited) return limited;
   const id = new URL(request.url).searchParams.get("id");
   if (!isUuid(id)) return fail("Courrier introuvable.", 400);
-  const { error } = await db.from("letters").delete().eq("id", id).eq("user_id", user);
-  return error ? fail("Suppression impossible.", 503) : NextResponse.json({ deleted: true });
+  const { data, error } = await db.from("letters").delete().eq("id", id).eq("user_id", user).eq("status", "brouillon").select("id").maybeSingle();
+  if (error) return fail("Suppression impossible.", 503);
+  if (!data) return fail("Seuls les brouillons peuvent être supprimés.", 409);
+  return NextResponse.json({ deleted: true });
 }

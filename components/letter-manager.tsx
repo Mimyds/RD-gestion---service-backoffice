@@ -1,7 +1,7 @@
 "use client";
 
 import type { JSONContent } from "@tiptap/core";
-import { Archive, Check, Download, Eye, LoaderCircle, Mail, Pencil, Plus, Printer, Search, Send, Trash2 } from "lucide-react";
+import { Archive, Check, Copy, Download, Eye, LoaderCircle, LockKeyhole, Mail, Pencil, Plus, Printer, RotateCcw, Search, Send, Trash2 } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,9 +19,8 @@ import { clientAddress, clientName } from "@/lib/clients";
 import { type CompanySettings, companyDetails } from "@/lib/company";
 import { fileName, formatDate, localDate } from "@/lib/dates";
 import { apiFetch } from "@/lib/http";
+import { isLetterLocked, type LetterStatus } from "@/lib/letter-lifecycle";
 import { downloadPdf as savePdf, letterPdf, printPdf } from "@/lib/pdf";
-
-type LetterStatus = "brouillon" | "finalisé" | "envoyé" | "archivé";
 
 export type Letter = {
   id: string;
@@ -151,6 +150,19 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
   function openEditor(letter: Letter) {
     onError("");
     setEditor(letter);
+  }
+
+  function duplicate(letter: Letter) {
+    onError("");
+    setPreview(null);
+    setEditor({
+      ...letter,
+      id: "",
+      status: "brouillon",
+      subject: `${letter.subject} (copie)`,
+      createdAt: undefined,
+      updatedAt: undefined,
+    });
   }
 
   function field<K extends keyof Letter>(key: K, value: Letter[K]) {
@@ -298,7 +310,7 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
             <FieldLegend className="px-1">Informations du courrier</FieldLegend>
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 max-sm:grid-cols-1">
               <Field className="lg:col-span-2"><FieldLabel htmlFor="letter-subject">Objet</FieldLabel><Input id="letter-subject" value={editor.subject} onChange={(event) => field("subject", event.target.value)} placeholder="Objet du courrier"/></Field>
-              <Field><FieldLabel htmlFor="letter-status">Statut</FieldLabel><select id="letter-status" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={editor.status} onChange={(event) => field("status", event.target.value as LetterStatus)}><option value="brouillon">Brouillon</option><option value="finalisé">Finalisé</option><option value="envoyé">Envoyé</option><option value="archivé">Archivé</option></select></Field>
+              <Field><FieldLabel htmlFor="letter-status">Statut</FieldLabel><select id="letter-status" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={editor.status} onChange={(event) => field("status", event.target.value as LetterStatus)}><option value="brouillon">Brouillon</option><option value="finalisé">Finalisé</option></select></Field>
               <Field><FieldLabel htmlFor="letter-date">Date</FieldLabel><DatePicker ariaLabel="Date du courrier" value={editor.date} onChange={(value) => field("date", value)}/></Field>
               <Field><FieldLabel htmlFor="letter-client">Client associé</FieldLabel><select id="letter-client" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={editor.clientId || ""} onChange={(event) => selectClient(event.target.value)}><option value="">Aucun client</option>{clients.map((client) => <option key={client.id} value={client.id}>{clientName(client)}</option>)}</select></Field>
               <Field><FieldLabel htmlFor="letter-recipient">Destinataire</FieldLabel><Input id="letter-recipient" value={editor.recipient} onChange={(event) => field("recipient", event.target.value)}/></Field>
@@ -320,12 +332,14 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
         <DialogHeader className="px-6 pt-6 pr-14 pb-3 max-sm:px-4 max-sm:pt-4 max-sm:pr-12"><DialogTitle>{preview?.subject ? `Courrier : ${preview.subject}` : "Aperçu du courrier"}</DialogTitle></DialogHeader>
         {preview ? <>
           <div className="flex flex-wrap gap-2 px-6 pb-4 max-sm:px-4">
-            <Button type="button" variant="outline" onClick={() => { openEditor(preview); setPreview(null); }}><Pencil data-icon="inline-start"/> Modifier</Button>
+            {!isLetterLocked(preview.status) ? <Button type="button" variant="outline" onClick={() => { openEditor(preview); setPreview(null); }}><Pencil data-icon="inline-start"/> Modifier</Button> : null}
             {/* Status changes and deletion only apply to a saved letter, not to the unsaved draft previewed from the editor. */}
+            {stored && preview.status === "finalisé" ? <Button type="button" variant="outline" onClick={() => changeStatus(preview, "brouillon")}><RotateCcw data-icon="inline-start"/> Réouvrir en brouillon</Button> : null}
             {stored && next ? <Button type="button" variant="outline" onClick={() => changeStatus(preview, next.status)}><next.icon data-icon="inline-start"/> {next.label}</Button> : null}
             <Button type="button" variant="outline" disabled={printing} onClick={printLetter}>{printing ? <LoaderCircle className="animate-spin" data-icon="inline-start"/> : <Printer data-icon="inline-start"/>}{printing ? "Préparation…" : "Imprimer"}</Button>
             <Button type="button" variant="outline" disabled={exporting} onClick={downloadPdf}>{exporting ? <LoaderCircle className="animate-spin" data-icon="inline-start"/> : <Download data-icon="inline-start"/>}{exporting ? "Création du PDF…" : "Enregistrer en PDF"}</Button>
-            {stored ? <Button type="button" variant="ghost" size="icon" className="text-destructive" aria-label="Supprimer" onClick={() => remove(preview)}><Trash2/></Button> : null}
+            {stored && !isLetterLocked(preview.status) ? <Button type="button" variant="ghost" size="icon" className="text-destructive" aria-label="Supprimer" onClick={() => remove(preview)}><Trash2/></Button> : null}
+            {stored && isLetterLocked(preview.status) ? <><Button type="button" variant="outline" onClick={() => duplicate(preview)}><Copy data-icon="inline-start"/> Dupliquer</Button><span className="inline-flex items-center gap-1.5 px-2 text-sm text-muted-foreground"><LockKeyhole className="size-4"/> Courrier verrouillé</span></> : null}
           </div>
           <div className="min-h-0 overflow-auto bg-muted/40 p-6 max-sm:p-3">
             <ScaledPage><LetterPaper letter={preview} company={company}/></ScaledPage>
