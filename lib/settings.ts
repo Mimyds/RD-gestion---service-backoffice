@@ -9,11 +9,13 @@ type SettingsRow = {
   issuer_details: string | null;
   email: string | null;
   phone: string | null;
+  siret: string | null;
+  vat_number: string | null;
   invoice_template: Templates | null;
   letter_template: Templates | null;
 };
 
-export const SETTINGS_COLUMNS = "issuer,issuer_address,issuer_details,email,phone,invoice_template,letter_template";
+export const SETTINGS_COLUMNS = "issuer,issuer_address,issuer_details,email,phone,siret,vat_number,invoice_template,letter_template";
 
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value : "";
 
@@ -27,6 +29,8 @@ export function settingsFromRow(row: SettingsRow | null): CompanySettings {
     address: text(row?.issuer_address) || DEFAULT_COMPANY.address,
     email: text(row?.email) || text(legacyEmail) || DEFAULT_COMPANY.email,
     phone: text(row?.phone) || text(legacyPhone) || DEFAULT_COMPANY.phone,
+    siret: text(row?.siret) || DEFAULT_COMPANY.siret,
+    vatNumber: text(row?.vat_number) || DEFAULT_COMPANY.vatNumber,
     letterCity: text(letter.city) || DEFAULT_COMPANY.letterCity,
     bankDetails: text(invoice.bankDetails) || DEFAULT_COMPANY.bankDetails,
     legalMentions: text(invoice.legalMentions) || DEFAULT_COMPANY.legalMentions,
@@ -46,6 +50,8 @@ export function settingsToRow(settings: CompanySettings, current: SettingsRow | 
     issuer_details: companyDetails(settings),
     email: settings.email || null,
     phone: settings.phone || null,
+    siret: settings.siret || null,
+    vat_number: settings.vatNumber || null,
     invoice_template: { ...(current?.invoice_template || {}), bankDetails: settings.bankDetails, legalMentions: settings.legalMentions, footer: settings.footer },
     letter_template: { ...(current?.letter_template || {}), city: settings.letterCity },
   };
@@ -56,6 +62,8 @@ export const issuerSnapshot = (settings: CompanySettings) => ({
   issuer: settings.name,
   issuerAddress: settings.address,
   issuerDetails: companyDetails(settings),
+  issuerSiret: settings.siret,
+  issuerVatNumber: settings.vatNumber,
   footer: settings.footer,
 });
 
@@ -66,5 +74,7 @@ export const storedSnapshot = (payload: Record<string, unknown>, current: Snapsh
   issuer: text(payload.issuer) || current.issuer,
   issuerAddress: text(payload.issuerAddress) || current.issuerAddress,
   issuerDetails: text(payload.issuerDetails) || current.issuerDetails,
+  issuerSiret: text(payload.issuerSiret) || current.issuerSiret,
+  issuerVatNumber: text(payload.issuerVatNumber) || current.issuerVatNumber,
   footer: text(payload.footer) || current.footer,
 });

@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
-import { Check, Download, FileText, LoaderCircle, Plus, Printer, Search, Send, Trash2 } from "lucide-react";
+import { Check, Download, FileText, LoaderCircle, LockKeyhole, Plus, Printer, Search, Send, Trash2 } from "lucide-react";
 import type { ClientRecord } from "@/components/client-manager";
 import { InvoiceEditor } from "@/components/invoice-editor";
 import { InvoicePaper } from "@/components/invoice-paper";
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { fileName, formatDate } from "@/lib/dates";
 import type { CompanySettings } from "@/lib/company";
 import { apiFetch } from "@/lib/http";
+import { isInvoiceLocked } from "@/lib/invoice-lifecycle";
 import { blankInvoice, type Invoice, money, nextInvoiceNumber, total, withCurrentCompany } from "@/lib/invoices";
 import { downloadPdf, invoicePdf, printPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
@@ -79,7 +80,7 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
 
   function editInvoice(invoice: Invoice) { onError(""); setEditor(withCurrentCompany(invoice, company)); setPreview(null); }
   async function saved() { setEditor(null); await Promise.all([refresh(), onClientsChanged()]); }
-  async function status(i: Invoice, value: Invoice["status"]) { try { const r = await apiFetch("/api/invoices", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...i, status: value }) }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Le statut n’a pas pu être modifié."); } }
+  async function status(i: Invoice, value: Invoice["status"]) { try { const r = await apiFetch("/api/invoices", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...i, status: value }) }); const result = await r.json(); if (!r.ok) throw Error(result.error || "Le statut n’a pas pu être modifié."); await refresh(); setPreview(null); } catch (cause) { onError(cause instanceof Error ? cause.message : "Le statut n’a pas pu être modifié."); } }
   async function remove(i: Invoice) { if (!confirm(`Supprimer la facture ${i.number} ?`)) return; try { const r = await apiFetch(`/api/invoices?id=${encodeURIComponent(i.id)}`, { method: "DELETE" }); if (!r.ok) throw Error(); await refresh(); setPreview(null); } catch { onError("Suppression impossible."); } }
   async function printInvoice() {
     if (!preview) return;
@@ -87,7 +88,7 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
     setPrinting(true);
     onError("");
     try {
-      await printPdf(() => invoicePdf(invoice));
+      await printPdf(() => invoicePdf(invoice, company.letterCity));
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "Impression impossible.");
     } finally {
@@ -99,7 +100,7 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
     setExportingPdf(true);
     onError("");
     try {
-      await downloadPdf(() => invoicePdf(withCurrentCompany(preview, company)), fileName(`facture-${preview.number}`, "facture"));
+      await downloadPdf(() => invoicePdf(withCurrentCompany(preview, company), company.letterCity), fileName(`facture-${preview.number}`, "facture"));
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : "Enregistrement du PDF impossible.");
     } finally {
@@ -190,18 +191,18 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
 <DialogTitle>Facture {preview?.number}</DialogTitle>
 </DialogHeader>{preview && <>
 <div className="flex flex-wrap gap-2 px-6 pb-4 print:hidden max-[700px]:px-4">
-<button className={tw.outline} onClick={() => editInvoice(preview)}>Modifier</button>{preview.status === "brouillon" && <button className={tw.outline} onClick={() => status(preview, "envoyée")}>
+{preview.status === "brouillon" && <button className={tw.outline} onClick={() => editInvoice(preview)}>Modifier</button>}{preview.status === "brouillon" && <button className={tw.outline} onClick={() => status(preview, "envoyée")}>
 <Send size={16}/> Marquer envoyée</button>}{preview.status === "envoyée" && <button className={tw.outline} onClick={() => status(preview, "payée")}>
 <Check size={16}/> Marquer payée</button>}<button className={tw.outline} disabled={printing} onClick={printInvoice}>
 {printing ? <LoaderCircle className="animate-spin" size={16}/> : <Printer size={16}/>} {printing ? "Préparation…" : "Imprimer"}</button>
 <button className={tw.outline} disabled={exportingPdf} onClick={downloadInvoicePdf}>
 {exportingPdf ? <LoaderCircle className="animate-spin" size={16}/> : <Download size={16}/>} {exportingPdf ? "Création du PDF…" : "Enregistrer en PDF"}</button>
-<button className={cn(tw.iconButton, "text-destructive")} aria-label="Supprimer" onClick={() => remove(preview)}>
+{!isInvoiceLocked(preview.status) ? <button className={cn(tw.iconButton, "text-destructive")} aria-label="Supprimer" onClick={() => remove(preview)}>
 <Trash2 size={17}/>
-</button>
+</button> : <span className="inline-flex items-center gap-1.5 px-2 text-sm text-muted-foreground"><LockKeyhole size={16}/> Facture verrouillée</span>}
 </div>
 <div className={tw.previewScroll}>
-<ScaledPage><InvoicePaper invoice={withCurrentCompany(preview, company)}/></ScaledPage>
+<ScaledPage><InvoicePaper invoice={withCurrentCompany(preview, company)} issuerCity={company.letterCity}/></ScaledPage>
 </div>
 </>}</DialogContent>
 </Dialog>

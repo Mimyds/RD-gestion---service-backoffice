@@ -5,6 +5,11 @@ export function siretDigits(value: string) {
   return value.replace(/\D/g, "").slice(0, 14)
 }
 
+export function sirenFromSiret(value: string) {
+  const digits = siretDigits(value)
+  return digits.length === 14 ? digits.slice(0, 9) : ""
+}
+
 export function isValidSiret(value: string) {
   if (!SIRET_PATTERN.test(value)) return false
   if (value === "00000000000000") return false

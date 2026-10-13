@@ -4,6 +4,8 @@ export type CompanySettings = {
   address: string;
   email: string;
   phone: string;
+  siret: string;
+  vatNumber: string;
   letterCity: string;
   bankDetails: string;
   legalMentions: string;
@@ -15,6 +17,8 @@ export const SETTINGS_LIMITS: Record<keyof CompanySettings, number> = {
   address: 500,
   email: 200,
   phone: 50,
+  siret: 30,
+  vatNumber: 20,
   letterCity: 100,
   bankDetails: 2000,
   legalMentions: 5000,
@@ -27,6 +31,8 @@ export const DEFAULT_COMPANY: CompanySettings = {
   address: "9 impasse Gizeh - 69220 BELLEVILLE EN BEAUJOLAIS",
   email: "remy.desroses@gmail.com",
   phone: "+33(0) 787 330 553",
+  siret: "",
+  vatNumber: "",
   letterCity: "Belleville-en-Beaujolais",
   bankDetails: `Banque : BANQUE POPULAIRE
 Titulaire du compte : M DESROSES - CALTON

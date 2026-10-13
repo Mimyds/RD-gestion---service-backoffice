@@ -3,9 +3,9 @@ import type { CompanySettings } from "@/lib/company";
 import type { Invoice } from "@/lib/invoices";
 
 // The PDF renderer and templates are loaded on demand: they are only needed when a document is exported.
-export async function invoicePdf(invoice: Invoice) {
+export async function invoicePdf(invoice: Invoice, issuerCity: string) {
   const [{ pdf }, { InvoiceDocument }] = await Promise.all([import("@react-pdf/renderer"), import("@/components/pdf/invoice-document")]);
-  return pdf(<InvoiceDocument invoice={invoice}/>).toBlob();
+  return pdf(<InvoiceDocument invoice={invoice} issuerCity={issuerCity}/>).toBlob();
 }
 
 export async function letterPdf(letter: Letter, company: CompanySettings) {
