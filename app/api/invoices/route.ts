@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticated, fail, isUuid, rateLimited, readJsonBody } from "@/lib/api";
+import { isAllowedLockedStatusChange, isInvoiceLocked } from "@/lib/invoice-lifecycle";
 import { issuerSnapshot, loadSettings, storedSnapshot } from "@/lib/settings";
 export const dynamic = "force-dynamic";
 const filled = (value: unknown) => typeof value === "string" && value.trim() ? value : "";
@@ -25,16 +26,47 @@ async function write(request: Request, updating: boolean) {
   const limited = await rateLimited(db, "invoices:write"); if (limited) return limited;
   const body = await readJsonBody<any>(request, 100_000); if (body.response) return body.response;
   const input = body.data;
+  if (updating && !isUuid(input?.id)) return fail("Identifiant invalide.", 400);
+  if (!updating && input?.status !== "brouillon") return fail("Une nouvelle facture doit être enregistrée comme brouillon.", 409);
+
+  if (updating) {
+    const existing = await db.from("invoices").select("status,payload,client_id,number").eq("id", input.id).eq("user_id", user).maybeSingle();
+    if (existing.error || !existing.data) return fail("Facture introuvable.", 404);
+
+    if (isInvoiceLocked(existing.data.status)) {
+      if (!isAllowedLockedStatusChange(existing.data.status, input?.status)) {
+        return fail("Une facture envoyée ou payée ne peut plus être modifiée.", 409);
+      }
+
+      const result = await db
+        .from("invoices")
+        .update({ status: "payée" })
+        .eq("id", input.id)
+        .eq("user_id", user)
+        .eq("status", "envoyée")
+        .select("id")
+        .maybeSingle();
+      if (result.error || !result.data) return fail("Le statut de la facture a changé. Rechargez la page.", 409);
+      return NextResponse.json({
+        invoice: {
+          ...(existing.data.payload as Record<string, unknown>),
+          id: result.data.id,
+          clientId: existing.data.client_id,
+          number: existing.data.number,
+          status: "payée",
+        },
+      });
+    }
+  }
+
   if (!valid(input) || JSON.stringify(input).length > 100000) return fail("Vérifiez les champs de la facture.", 400);
-  if (updating && !isUuid(input.id)) return fail("Identifiant invalide.", 400);
+  if (updating && input.status === "payée") return fail("Une facture doit être marquée envoyée avant d’être payée.", 409);
   const profile = await loadSettings(db, user);
   if (profile.error) return fail("Réglages indisponibles.", 503);
   let company = issuerSnapshot(profile.settings);
   if (updating) {
-    const existing = await db.from("invoices").select("status,payload").eq("id", input.id).eq("user_id", user).maybeSingle();
-    if (existing.error || !existing.data) return fail("Facture introuvable.", 404);
-    // The company block is frozen once the invoice has left draft.
-    if (existing.data.status !== "brouillon") company = storedSnapshot(existing.data.payload as Record<string, unknown>, company);
+    // Drafts use the current company settings until they are sent.
+    company = issuerSnapshot(profile.settings);
   }
   const payload = {
     number: input.number.trim(),
@@ -58,8 +90,11 @@ async function write(request: Request, updating: boolean) {
     ...company,
   };
   const clientId = isUuid(input.clientId) ? input.clientId : null;
-  const result = updating ? await db.from("invoices").update({ client_id: clientId, number: input.number, status: input.status, payload }).eq("id", input.id).eq("user_id", user).select("id").single() : await db.from("invoices").insert({ user_id: user, client_id: clientId, number: input.number, status: input.status, payload }).select("id").single();
+  const result = updating
+    ? await db.from("invoices").update({ client_id: clientId, number: input.number, status: input.status, payload }).eq("id", input.id).eq("user_id", user).eq("status", "brouillon").select("id").maybeSingle()
+    : await db.from("invoices").insert({ user_id: user, client_id: clientId, number: input.number, status: input.status, payload }).select("id").single();
   if (result.error) return fail(result.error.code === "23505" ? "Ce numéro de facture existe déjà." : "Enregistrement impossible.", 409);
+  if (!result.data) return fail("Le statut de la facture a changé. Rechargez la page.", 409);
   return NextResponse.json({ invoice: { ...payload, id: result.data.id } });
 }
 export async function POST(request: Request) { return write(request, false); }
@@ -68,6 +103,8 @@ export async function DELETE(request: Request) {
   const { db, user } = await authenticated(); if (!user) return fail("Connexion requise.", 401);
   const limited = await rateLimited(db, "invoices:write"); if (limited) return limited;
   const id = new URL(request.url).searchParams.get("id"); if (!isUuid(id)) return fail("Identifiant manquant.", 400);
-  const { error } = await db.from("invoices").delete().eq("id", id).eq("user_id", user);
-  return error ? fail("Suppression impossible.", 503) : NextResponse.json({ ok: true });
+  const { data, error } = await db.from("invoices").delete().eq("id", id).eq("user_id", user).eq("status", "brouillon").select("id").maybeSingle();
+  if (error) return fail("Suppression impossible.", 503);
+  if (!data) return fail("Seuls les brouillons peuvent être supprimés.", 409);
+  return NextResponse.json({ ok: true });
 }
