@@ -1,13 +1,20 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Building2, Mail, Pencil, Phone, Plus, Search, Trash2, UserRound, UsersRound } from "lucide-react"
+import { type ReactNode, useMemo, useState } from "react"
+import { REGEXP_ONLY_DIGITS } from "input-otp"
+import { Building2, Mail, MapPin, Pencil, Phone, Plus, Search, StickyNote, Trash2, UserRound, UsersRound } from "lucide-react"
 
+import { ErrorBanner } from "@/components/error-banner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp"
 import { Textarea } from "@/components/ui/textarea"
+import { clientAddress } from "@/lib/clients"
+import { apiFetch } from "@/lib/http"
+import { isValidSiret, siretDigits } from "@/lib/siret"
+import { frenchVatDigits, isValidFrenchVatNumber, normalizeFrenchVatNumber } from "@/lib/vat-number"
 
 export type ClientRecord = {
   id: string
@@ -80,24 +87,51 @@ const draftOf = (client: ClientRecord): ClientDraft => ({
   city: client.city || "",
   country: client.country || "France",
   siret: client.siret || "",
-  vatNumber: client.vat_number || "",
+  vatNumber: client.vat_number ? normalizeFrenchVatNumber(client.vat_number) : "",
   notes: client.notes || "",
 })
+
+function DetailRow({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-3 border-t py-3.5 first:border-t-0 [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-ring">
+      {icon}
+      <div className="min-w-0">
+        <div className="mb-0.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{label}</div>
+        <div className="text-sm break-words whitespace-pre-line text-foreground">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+const missing = <span className="text-muted-foreground">Non renseigné</span>
+const siretGroups = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11, 12, 13]]
+const vatGroups = [[0, 1], [2, 3, 4], [5, 6, 7], [8, 9, 10]]
 
 export function ClientManager({
   clients,
   loading,
+  error,
   onChanged,
   onError,
 }: {
   clients: ClientRecord[]
   loading: boolean
+  error: string
   onChanged: () => Promise<void>
   onError: (message: string) => void
 }) {
   const [query, setQuery] = useState("")
   const [editor, setEditor] = useState<ClientDraft | null>(null)
+  // Looked up from the list so the details reflect the latest data after an edit.
+  const [detailsId, setDetailsId] = useState<string | null>(null)
+  const details = clients.find((client) => client.id === detailsId) ?? null
   const [saving, setSaving] = useState(false)
+  const [validationAttempted, setValidationAttempted] = useState(false)
+  const siretInvalid = Boolean(validationAttempted && editor?.type === "entreprise" && editor.siret && !isValidSiret(editor.siret))
+  const siretError = editor?.siret.length === 14 ? "Ce numéro SIRET n’est pas valide." : "Le SIRET doit comporter 14 chiffres."
+  const vatDigits = frenchVatDigits(editor?.vatNumber || "")
+  const vatInvalid = Boolean(validationAttempted && editor?.type === "entreprise" && editor.vatNumber && !isValidFrenchVatNumber(editor.vatNumber))
+  const vatError = vatDigits.length === 11 ? "Ce numéro de TVA intracommunautaire n’est pas valide." : "Le numéro de TVA doit comporter FR suivi de 11 chiffres."
   const shown = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     if (!normalized) return clients
@@ -114,10 +148,19 @@ export function ClientManager({
 
   async function saveClient() {
     if (!editor) return
+    setValidationAttempted(true)
+    if (editor.type === "entreprise" && editor.siret && !isValidSiret(editor.siret)) {
+      onError(siretError)
+      return
+    }
+    if (editor.type === "entreprise" && editor.vatNumber && !isValidFrenchVatNumber(editor.vatNumber)) {
+      onError(vatError)
+      return
+    }
     setSaving(true)
     onError("")
     try {
-      const response = await fetch("/api/clients", {
+      const response = await apiFetch("/api/clients", {
         method: editor.id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editor),
@@ -133,13 +176,27 @@ export function ClientManager({
     }
   }
 
+  function editClient(client: ClientRecord) {
+    onError("")
+    setValidationAttempted(false)
+    setDetailsId(null)
+    setEditor(draftOf(client))
+  }
+
+  function createClient() {
+    onError("")
+    setValidationAttempted(false)
+    setEditor(emptyClient())
+  }
+
   async function deleteClient(client: ClientRecord) {
     if (!window.confirm(`Supprimer le client ${nameOf(client)} ?`)) return
     onError("")
     try {
-      const response = await fetch(`/api/clients?id=${encodeURIComponent(client.id)}`, { method: "DELETE" })
+      const response = await apiFetch(`/api/clients?id=${encodeURIComponent(client.id)}`, { method: "DELETE" })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || "Suppression impossible.")
+      setDetailsId(null)
       await onChanged()
     } catch (error) {
       onError(error instanceof Error ? error.message : "Suppression impossible.")
@@ -154,7 +211,7 @@ export function ClientManager({
           <h1 className="mb-3 text-5xl leading-none font-medium tracking-[-0.045em] max-sm:text-[39px]">Clients</h1>
           <p className="m-0 leading-6 text-muted-foreground">Centralisez les coordonnées utilisées dans vos factures et courriers.</p>
         </div>
-        <Button size="lg" onClick={() => setEditor(emptyClient())}>
+        <Button size="lg" onClick={createClient}>
           <Plus data-icon="inline-start" /> Nouveau client
         </Button>
       </div>
@@ -178,19 +235,19 @@ export function ClientManager({
             <span className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-accent text-ring"><UsersRound /></span>
             <h3 className="mb-2 text-lg font-semibold text-foreground">{clients.length ? "Aucun client trouvé" : "Votre répertoire est vide"}</h3>
             <p className="mx-auto mb-5 max-w-96 text-sm leading-6">{clients.length ? "Essayez une autre recherche." : "Ajoutez votre premier client pour le retrouver lors de la création d’une facture."}</p>
-            {!clients.length && <Button variant="outline" onClick={() => setEditor(emptyClient())}><Plus data-icon="inline-start" /> Ajouter un client</Button>}
+            {!clients.length && <Button variant="outline" onClick={createClient}><Plus data-icon="inline-start" /> Ajouter un client</Button>}
           </div>
         ) : (
           <div className="overflow-auto">
             <table className="w-full min-w-[760px] border-collapse text-left">
-              <thead><tr className="bg-muted/40 text-[11px] tracking-wider text-muted-foreground"><th className="px-5 py-4">CLIENT</th><th className="px-5 py-4">CONTACT</th><th className="px-5 py-4">ADRESSE</th><th className="px-5 py-4">TYPE</th><th className="px-5 py-4 text-right">ACTIONS</th></tr></thead>
+              <thead><tr className="bg-muted/40 text-[11px] tracking-wider text-muted-foreground"><th className="px-5 py-4">CLIENT</th><th className="px-5 py-4">CONTACT</th><th className="px-5 py-4">ADRESSE</th><th className="px-5 py-4">TYPE</th><th className="px-5 py-4" /></tr></thead>
               <tbody>{shown.map((client) => (
-                <tr className="hover:bg-muted/30" key={client.id}>
+                <tr className="cursor-pointer hover:bg-muted/30" key={client.id} onClick={() => setDetailsId(client.id)}>
                   <td className="border-t px-5 py-5 text-sm"><div className="flex items-center gap-3 text-foreground [&>svg]:size-[18px] [&>svg]:shrink-0 [&>svg]:text-ring">{client.type === "entreprise" ? <Building2 /> : <UserRound />}<div><strong className="block">{nameOf(client)}</strong>{client.siret && <small className="mt-1 block text-[11px] font-normal text-muted-foreground">SIRET {client.siret}</small>}</div></div></td>
                   <td className="border-t px-5 py-5 text-sm text-muted-foreground"><div className="grid gap-1.5">{client.email && <span className="flex items-center gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"><Mail />{client.email}</span>}{client.phone && <span className="flex items-center gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"><Phone />{client.phone}</span>}{!client.email && !client.phone && "—"}</div></td>
                   <td className="border-t px-5 py-5 text-sm text-muted-foreground">{[client.address_line1, [client.postal_code, client.city].filter(Boolean).join(" ")].filter(Boolean).map((line) => <span className="block" key={line}>{line}</span>)}{!client.address_line1 && !client.city && "—"}</td>
                   <td className="border-t px-5 py-5 text-sm"><span className="inline-block rounded-full bg-secondary px-2.5 py-1.5 text-xs font-bold text-secondary-foreground capitalize">{client.type}</span></td>
-                  <td className="border-t px-5 py-5 text-sm"><div className="flex justify-end gap-1"><Button type="button" variant="ghost" size="icon-sm" aria-label={`Modifier ${nameOf(client)}`} onClick={() => setEditor(draftOf(client))}><Pencil /></Button><Button type="button" variant="ghost" size="icon-sm" aria-label={`Supprimer ${nameOf(client)}`} onClick={() => deleteClient(client)}><Trash2 /></Button></div></td>
+                  <td className="border-t px-5 py-5 text-right text-2xl text-muted-foreground">›</td>
                 </tr>
               ))}</tbody>
             </table>
@@ -198,23 +255,121 @@ export function ClientManager({
         )}
       </section>
 
+      <Dialog open={Boolean(details)} onOpenChange={(open) => !open && setDetailsId(null)}>
+        <DialogContent className="max-h-[92vh] w-[min(92vw,640px)] max-w-[640px] overflow-auto p-6 sm:max-w-[640px] max-sm:w-[98vw] max-sm:p-4">
+          {details && <>
+            <DialogHeader>
+              <div className="flex items-center gap-3 pr-8 [&>svg]:size-5 [&>svg]:shrink-0 [&>svg]:text-ring">
+                {details.type === "entreprise" ? <Building2 /> : <UserRound />}
+                <DialogTitle className="min-w-0 break-words">{nameOf(details)}</DialogTitle>
+                <span className="inline-block shrink-0 rounded-full bg-secondary px-2.5 py-1 text-xs font-bold text-secondary-foreground capitalize">{details.type}</span>
+              </div>
+            </DialogHeader>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => editClient(details)}><Pencil data-icon="inline-start" /> Modifier</Button>
+              <Button type="button" variant="ghost" size="icon" className="text-destructive" aria-label="Supprimer" onClick={() => deleteClient(details)}><Trash2 /></Button>
+            </div>
+            <ErrorBanner message={error} onDismiss={() => onError("")} />
+            <div className="rounded-xl border px-4">
+              <DetailRow icon={<Mail />} label="E-mail">{details.email ? <a className="text-ring underline-offset-2 hover:underline" href={`mailto:${details.email}`}>{details.email}</a> : missing}</DetailRow>
+              <DetailRow icon={<Phone />} label="Téléphone">{details.phone ? <a className="text-ring underline-offset-2 hover:underline" href={`tel:${details.phone.replace(/\s/g, "")}`}>{details.phone}</a> : missing}</DetailRow>
+              <DetailRow icon={<MapPin />} label="Adresse">{clientAddress(details) || missing}</DetailRow>
+              {details.type === "entreprise" && <DetailRow icon={<Building2 />} label="Informations légales">{details.siret || details.vat_number ? [details.siret && `SIRET : ${details.siret}`, details.vat_number && `N° de TVA : ${details.vat_number}`].filter(Boolean).join("\n") : missing}</DetailRow>}
+              <DetailRow icon={<StickyNote />} label="Notes">{details.notes || missing}</DetailRow>
+            </div>
+          </>}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={Boolean(editor)} onOpenChange={(open) => !open && setEditor(null)}>
-        <DialogContent className="max-h-[92vh] w-[min(92vw,860px)] max-w-[860px] overflow-auto p-6 max-sm:w-[98vw] max-sm:p-4">
+        <DialogContent className="max-h-[92vh] w-[min(94vw,960px)] max-w-[960px] overflow-auto p-6 sm:max-w-[960px] max-sm:w-[98vw] max-sm:p-4">
           <DialogHeader><DialogTitle>{editor?.id ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>
-          {editor && <FieldGroup className="gap-5">
-            <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+          <ErrorBanner message={error} onDismiss={() => onError("")} />
+          {editor && <FieldGroup className="gap-4">
+            <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Identité</FieldLegend>
+              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
               <Field><FieldLabel htmlFor="client-type">Type de client</FieldLabel><select className="h-9 rounded-lg border bg-background px-2.5 text-foreground outline-ring" id="client-type" value={editor.type} onChange={(event) => setField("type", event.target.value as ClientDraft["type"])}><option value="entreprise">Entreprise</option><option value="particulier">Particulier</option></select></Field>
               {editor.type === "entreprise" ? <Field><FieldLabel htmlFor="company-name">Raison sociale</FieldLabel><Input id="company-name" value={editor.companyName} onChange={(event) => setField("companyName", event.target.value)} /></Field> : <><Field><FieldLabel htmlFor="first-name">Prénom</FieldLabel><Input id="first-name" value={editor.firstName} onChange={(event) => setField("firstName", event.target.value)} /></Field><Field><FieldLabel htmlFor="last-name">Nom</FieldLabel><Input id="last-name" value={editor.lastName} onChange={(event) => setField("lastName", event.target.value)} /></Field></>}
+              </div>
+            </FieldSet>
+
+            <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Coordonnées</FieldLegend>
+              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
               <Field><FieldLabel htmlFor="client-email">E-mail</FieldLabel><Input id="client-email" type="email" value={editor.email} onChange={(event) => setField("email", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="client-phone">Téléphone</FieldLabel><Input id="client-phone" type="tel" value={editor.phone} onChange={(event) => setField("phone", event.target.value)} /></Field>
+              </div>
+            </FieldSet>
+
+            <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Adresse postale</FieldLegend>
+              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
               <Field><FieldLabel htmlFor="address-line-1">Adresse</FieldLabel><Input id="address-line-1" value={editor.addressLine1} onChange={(event) => setField("addressLine1", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="address-line-2">Complément d’adresse</FieldLabel><Input id="address-line-2" value={editor.addressLine2} onChange={(event) => setField("addressLine2", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="postal-code">Code postal</FieldLabel><Input id="postal-code" value={editor.postalCode} onChange={(event) => setField("postalCode", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="client-city">Ville</FieldLabel><Input id="client-city" value={editor.city} onChange={(event) => setField("city", event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="client-country">Pays</FieldLabel><Input id="client-country" value={editor.country} onChange={(event) => setField("country", event.target.value)} /></Field>
-              {editor.type === "entreprise" && <><Field><FieldLabel htmlFor="client-siret">SIRET</FieldLabel><Input id="client-siret" value={editor.siret} onChange={(event) => setField("siret", event.target.value)} /></Field><Field><FieldLabel htmlFor="vat-number">N° de TVA</FieldLabel><Input id="vat-number" value={editor.vatNumber} onChange={(event) => setField("vatNumber", event.target.value)} /></Field></>}
-            </div>
-            <Field><FieldLabel htmlFor="client-notes">Notes</FieldLabel><Textarea className="min-h-24" id="client-notes" value={editor.notes} onChange={(event) => setField("notes", event.target.value)} /></Field>
+              </div>
+            </FieldSet>
+
+            {editor.type === "entreprise" && <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Informations légales</FieldLegend>
+              <div className="grid gap-4">
+                <Field data-invalid={siretInvalid || undefined}>
+                  <FieldLabel htmlFor="client-siret">SIRET</FieldLabel>
+                  <InputOTP
+                    id="client-siret"
+                    aria-label="SIRET : SIREN à 9 chiffres suivi du NIC à 5 chiffres"
+                    aria-invalid={siretInvalid || undefined}
+                    containerClassName="flex-wrap"
+                    maxLength={14}
+                    pasteTransformer={siretDigits}
+                    pattern={REGEXP_ONLY_DIGITS}
+                    value={editor.siret}
+                    onChange={(value) => setField("siret", value)}
+                  >
+                    {siretGroups.map((group, groupIndex) => <span className="contents" key={group[0]}>
+                      {groupIndex > 0 ? <InputOTPSeparator /> : null}
+                      <InputOTPGroup>
+                        {group.map((index) => <InputOTPSlot aria-invalid={siretInvalid || undefined} index={index} key={index} />)}
+                      </InputOTPGroup>
+                    </span>)}
+                  </InputOTP>
+                  {siretInvalid ? <FieldError>{siretError}</FieldError> : <FieldDescription>SIREN à 9 chiffres, puis NIC à 5 chiffres.</FieldDescription>}
+                </Field>
+                <Field data-invalid={vatInvalid || undefined}>
+                  <FieldLabel htmlFor="vat-number">N° de TVA intracommunautaire</FieldLabel>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="grid h-9 min-w-12 place-items-center rounded-md border bg-muted px-3 text-sm font-semibold" aria-hidden="true">FR</span>
+                    <InputOTP
+                      id="vat-number"
+                      aria-label="11 chiffres du numéro de TVA intracommunautaire"
+                      aria-invalid={vatInvalid || undefined}
+                      containerClassName="flex-wrap"
+                      maxLength={11}
+                      pasteTransformer={frenchVatDigits}
+                      pattern={REGEXP_ONLY_DIGITS}
+                      value={vatDigits}
+                      onChange={(value) => setField("vatNumber", value ? `FR${value}` : "")}
+                    >
+                      {vatGroups.map((group, groupIndex) => <span className="contents" key={group[0]}>
+                        {groupIndex > 0 ? <InputOTPSeparator /> : null}
+                        <InputOTPGroup>
+                          {group.map((index) => <InputOTPSlot aria-invalid={vatInvalid || undefined} index={index} key={index} />)}
+                        </InputOTPGroup>
+                      </span>)}
+                    </InputOTP>
+                  </div>
+                  {vatInvalid ? <FieldError>{vatError}</FieldError> : <FieldDescription>FR, clé de contrôle à 2 chiffres, puis SIREN à 9 chiffres.</FieldDescription>}
+                </Field>
+              </div>
+            </FieldSet>}
+
+            <FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-sm:p-4">
+              <FieldLegend className="px-1">Notes</FieldLegend>
+              <Field><FieldLabel className="sr-only" htmlFor="client-notes">Notes complémentaires</FieldLabel><Textarea className="min-h-24" id="client-notes" placeholder="Ajoutez ici toute information utile concernant ce client…" value={editor.notes} onChange={(event) => setField("notes", event.target.value)} /></Field>
+            </FieldSet>
             <div className="flex justify-end gap-2.5"><Button type="button" variant="outline" onClick={() => setEditor(null)}>Annuler</Button><Button type="button" disabled={saving} onClick={saveClient}>{saving ? "Enregistrement…" : "Enregistrer le client"}</Button></div>
           </FieldGroup>}
         </DialogContent>

@@ -1,0 +1,230 @@
+"use client";
+import { useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import type { ClientRecord } from "@/components/client-manager";
+import { DatePicker } from "@/components/date-picker";
+import { ErrorBanner } from "@/components/error-banner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { clientAddress, clientName } from "@/lib/clients";
+import { apiFetch } from "@/lib/http";
+import { blankLine, type Invoice, type InvoiceLine, money, total } from "@/lib/invoices";
+import { type InvoiceFieldErrors, validateInvoice } from "@/lib/invoice-validation";
+import { isValidSiret } from "@/lib/siret";
+import { isValidFrenchVatNumber } from "@/lib/vat-number";
+
+type ClientDraft = { type: "entreprise" | "particulier"; companyName: string; firstName: string; lastName: string; email: string; phone: string; addressLine1: string; addressLine2: string; postalCode: string; city: string; country: string; siret: string; vatNumber: string };
+type AddressDraft = Pick<ClientDraft, "addressLine1" | "addressLine2" | "postalCode" | "city" | "country">;
+const NEW_CLIENT = "__new__";
+const LEGACY_CLIENT = "__legacy__";
+const blankClient = (): ClientDraft => ({ type: "entreprise", companyName: "", firstName: "", lastName: "", email: "", phone: "", addressLine1: "", addressLine2: "", postalCode: "", city: "", country: "France", siret: "", vatNumber: "" });
+const blankAddress = (): AddressDraft => ({ addressLine1: "", addressLine2: "", postalCode: "", city: "", country: "France" });
+const clientDraftName = (client: ClientDraft) => client.type === "entreprise" ? client.companyName.trim() : [client.firstName, client.lastName].map(value => value.trim()).filter(Boolean).join(" ");
+const serializeAddress = (address: AddressDraft) => [address.addressLine1, address.addressLine2, [address.postalCode, address.city].filter(Boolean).join(" "), address.country].map(value => value.trim()).filter(Boolean).join("\n");
+const clientDraftAddress = (client: ClientDraft) => serializeAddress(client);
+const addressFromClient = (client: ClientRecord): AddressDraft => ({ addressLine1: client.address_line1 || "", addressLine2: client.address_line2 || "", postalCode: client.postal_code || "", city: client.city || "", country: client.country || "France" });
+function parseAddress(value = ""): AddressDraft {
+  const lines = value.split("\n").map(line => line.trim()).filter(Boolean);
+  if (!lines.length) return blankAddress();
+  const postalCityIndex = lines.findIndex((line, index) => index > 0 && /^\d{5}(?:\s+|$)/.test(line));
+  const postalCity = postalCityIndex >= 0 ? lines[postalCityIndex] : "";
+  const postalMatch = postalCity.match(/^(\d{5})(?:\s+(.*))?$/);
+  return {
+    addressLine1: lines[0] || "",
+    addressLine2: postalCityIndex > 1 ? lines.slice(1, postalCityIndex).join(", ") : "",
+    postalCode: postalMatch?.[1] || "",
+    city: postalMatch?.[2] || "",
+    country: postalCityIndex >= 0 ? lines[postalCityIndex + 1] || "France" : lines[1] || "France",
+  };
+}
+function ValidationError({ message }: { message?: string }) { return message ? <span role="alert" className="text-sm font-normal text-destructive">{message}</span> : null; }
+const tw = {
+  primary: "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-transparent bg-primary px-4 py-2.5 font-semibold whitespace-nowrap text-primary-foreground shadow-sm hover:bg-primary/90",
+  outline: "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border bg-background px-4 py-2.5 font-semibold whitespace-nowrap text-foreground hover:bg-accent",
+  formScroll: "flex flex-col gap-4 overflow-auto px-0.5 [&_label]:flex [&_label]:flex-col [&_label]:gap-2 [&_label]:text-[13px] [&_label]:font-semibold [&_label]:text-muted-foreground [&_input]:min-w-0 [&_input]:rounded-lg [&_input]:border [&_input]:bg-background [&_input]:px-3 [&_input]:py-2.5 [&_input]:text-[15px] [&_input]:text-foreground [&_input]:outline-ring [&_select]:min-w-0 [&_select]:rounded-lg [&_select]:border [&_select]:bg-background [&_select]:px-3 [&_select]:py-2.5 [&_select]:text-[15px] [&_select]:text-foreground [&_textarea]:min-w-0 [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:bg-background [&_textarea]:px-3 [&_textarea]:py-2.5 [&_textarea]:text-[15px] [&_textarea]:text-foreground [&_[aria-invalid=true]]:border-destructive [&_[aria-invalid=true]]:ring-3 [&_[aria-invalid=true]]:ring-destructive/20",
+  formGrid: "grid grid-cols-2 gap-3 max-[700px]:grid-cols-1",
+  lineForm: "grid grid-cols-[minmax(90px,1fr)_minmax(160px,2fr)_repeat(3,minmax(75px,1fr))_36px] items-end gap-2.5 max-[700px]:grid-cols-2",
+  iconButton: "inline-grid place-items-center border-0 bg-transparent p-2.5 text-muted-foreground",
+  textButton: "flex items-center gap-1.5 border-0 bg-transparent px-0 pt-1 pb-4 text-sm font-semibold text-ring",
+  formTotal: "flex justify-end gap-10 border-t py-4 text-lg",
+  formActions: "flex justify-end gap-2.5",
+} as const;
+
+export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSaved }: {
+  initial: Invoice;
+  clients: ClientRecord[];
+  error: string;
+  onError: (message: string) => void;
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [editor, setEditor] = useState(initial);
+  const [clientSelection, setClientSelection] = useState(initial.id ? initial.clientId || LEGACY_CLIENT : NEW_CLIENT);
+  const [clientDraft, setClientDraft] = useState<ClientDraft>(blankClient);
+  const [deliverySameAsBilling, setDeliverySameAsBilling] = useState(() => !initial.deliveryAddress?.trim() || initial.deliveryAddress.trim() === initial.clientAddress.trim());
+  const [deliveryDraft, setDeliveryDraft] = useState<AddressDraft>(() => parseAddress(initial.deliveryAddress || initial.clientAddress));
+  const [deliveryHasBeenCustomized, setDeliveryHasBeenCustomized] = useState(() => Boolean(initial.deliveryAddress?.trim() && initial.deliveryAddress.trim() !== initial.clientAddress.trim()));
+  const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<InvoiceFieldErrors>({});
+
+  const selectedClient = clients.find(client => client.id === clientSelection);
+  const billingAddress: AddressDraft = clientSelection === NEW_CLIENT
+    ? clientDraft
+    : selectedClient ? addressFromClient(selectedClient) : parseAddress(editor.clientAddress);
+  const displayedDeliveryAddress = deliverySameAsBilling ? billingAddress : deliveryDraft;
+
+  function clearError(key: string) { setFieldErrors(current => { if (!current[key]) return current; const next = { ...current }; delete next[key]; return next; }); }
+  function chooseClient(value: string) { clearError("client"); setClientSelection(value); if (value === NEW_CLIENT) { setClientDraft(blankClient()); setEditor(p => ({ ...p, clientId: null, client: "", clientType: "entreprise", clientAddress: "", clientEmail: "", clientSiret: "", clientVatNumber: "" })); return; } const selected = clients.find(client => client.id === value); if (selected) setEditor(p => ({ ...p, clientId: selected.id, client: clientName(selected), clientType: selected.type, clientAddress: clientAddress(selected), clientEmail: selected.email || "", clientSiret: selected.siret || "", clientVatNumber: selected.vat_number || "" })); }
+  function clientField<K extends keyof ClientDraft>(key: K, value: ClientDraft[K]) { clearError(`clientDraft.${key}`); clearError("client"); setClientDraft(current => ({ ...current, [key]: value })); }
+  function field<K extends keyof Invoice>(key: K, value: Invoice[K]) { clearError(String(key)); setEditor(p => ({ ...p, [key]: value })); }
+  function toggleDeliverySameAsBilling(checked: boolean) {
+    clearError("deliveryAddress");
+    setDeliverySameAsBilling(checked);
+    if (checked) {
+      setEditor(current => ({ ...current, deliveryAddress: "" }));
+      return;
+    }
+    const nextAddress = deliveryHasBeenCustomized ? deliveryDraft : { ...billingAddress };
+    setDeliveryDraft(nextAddress);
+    setEditor(current => ({ ...current, deliveryAddress: serializeAddress(nextAddress) }));
+  }
+  function deliveryField<K extends keyof AddressDraft>(key: K, value: AddressDraft[K]) {
+    clearError("deliveryAddress");
+    const next = { ...deliveryDraft, [key]: value };
+    setDeliveryHasBeenCustomized(true);
+    setDeliveryDraft(next);
+    setEditor(invoice => ({ ...invoice, deliveryAddress: serializeAddress(next) }));
+  }
+  function line(index: number, key: keyof InvoiceLine, value: string | number) { clearError(`lines.${index}.${String(key)}`); setEditor(p => ({ ...p, lines: p.lines.map((l, n) => n === index ? { ...l, [key]: value } : l) })); }
+  async function save() {
+    const draftName = clientDraftName(clientDraft);
+    const deliveryAddress = deliverySameAsBilling ? "" : serializeAddress(deliveryDraft);
+    const invoiceWithDelivery = { ...editor, deliveryAddress };
+    const candidate = clientSelection === NEW_CLIENT ? { ...invoiceWithDelivery, client: draftName, clientType: clientDraft.type, clientAddress: clientDraftAddress(clientDraft), clientEmail: clientDraft.email, clientSiret: clientDraft.siret, clientVatNumber: clientDraft.vatNumber } : invoiceWithDelivery;
+    const errors = validateInvoice(candidate);
+    if (!deliverySameAsBilling && !deliveryDraft.addressLine1.trim()) errors.deliveryAddress = "Renseignez l’adresse de livraison ou indiquez qu’elle est identique à l’adresse de facturation.";
+    if (clientSelection === NEW_CLIENT) {
+      if (!draftName) errors[clientDraft.type === "entreprise" ? "clientDraft.companyName" : "clientDraft.firstName"] = clientDraft.type === "entreprise" ? "La raison sociale est requise." : "Renseignez au moins le prénom ou le nom.";
+      if (clientDraft.email && !/^\S+@\S+\.\S+$/.test(clientDraft.email)) errors["clientDraft.email"] = "Saisissez une adresse e-mail valide.";
+      if (clientDraft.siret && !isValidSiret(clientDraft.siret)) errors["clientDraft.siret"] = "Le SIRET doit comporter 14 chiffres et être valide.";
+      if (clientDraft.vatNumber && !isValidFrenchVatNumber(clientDraft.vatNumber)) errors["clientDraft.vatNumber"] = "Le numéro de TVA doit comporter FR suivi de 11 chiffres valides.";
+      if (errors.clientAddress) errors["clientDraft.addressLine1"] = errors.clientAddress;
+      if (errors.clientEmail) errors["clientDraft.email"] = errors.clientEmail;
+      delete errors.client;
+      delete errors.clientAddress;
+      delete errors.clientEmail;
+      delete errors.clientSiret;
+      delete errors.clientVatNumber;
+    }
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) { onError(""); return; }
+
+    setSaving(true); onError("");
+    try { let invoice = candidate; if (clientSelection === NEW_CLIENT) { const clientResponse = await apiFetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(clientDraft) }); const clientData = await clientResponse.json(); if (!clientResponse.ok) throw Error(clientData.error || "Enregistrement du client impossible."); const created = clientData.client as ClientRecord; invoice = { ...candidate, clientId: created.id, client: clientName(created), clientType: created.type, clientAddress: clientAddress(created), clientEmail: created.email || "", clientSiret: created.siret || "", clientVatNumber: created.vat_number || "" }; setEditor(invoice); setClientSelection(created.id); } const r = await apiFetch("/api/invoices", { method: invoice.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(invoice) }); const d = await r.json(); if (!r.ok) { if (d.fieldErrors) { setFieldErrors(d.fieldErrors); return; } throw Error(d.error || "Enregistrement impossible."); } await onSaved(); } catch (e) { onError(e instanceof Error ? e.message : "Enregistrement impossible."); } finally { setSaving(false); }
+  }
+
+  return <>
+<ErrorBanner message={error} onDismiss={() => onError("")}/>
+<div className={tw.formScroll}>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Informations de la facture</FieldLegend>
+<div className={tw.formGrid}>
+<label>Numéro de facture<input aria-invalid={Boolean(fieldErrors.number) || undefined} value={editor.number} onChange={e => field("number", e.target.value)}/><ValidationError message={fieldErrors.number}/>
+</label>
+<label>Devise<select aria-invalid={Boolean(fieldErrors.currency) || undefined} value={editor.currency} onChange={e => field("currency", e.target.value)}>
+<option>EUR</option>
+<option>USD</option>
+</select><ValidationError message={fieldErrors.currency}/>
+</label>
+<label>Date d’émission<DatePicker ariaLabel="Date d’émission" ariaInvalid={Boolean(fieldErrors.issueDate)} value={editor.issueDate} onChange={value => field("issueDate", value)}/><ValidationError message={fieldErrors.issueDate}/>
+</label>
+<label>Date d’échéance<DatePicker ariaLabel="Date d’échéance" ariaInvalid={Boolean(fieldErrors.dueDate)} value={editor.dueDate} onChange={value => field("dueDate", value)}/><ValidationError message={fieldErrors.dueDate}/>
+</label>
+<label>N° de bon de commande<input aria-invalid={Boolean(fieldErrors.purchaseOrderNumber) || undefined} value={editor.purchaseOrderNumber || ""} onChange={e => field("purchaseOrderNumber", e.target.value)} placeholder="Si communiqué par le client"/><ValidationError message={fieldErrors.purchaseOrderNumber}/>
+</label>
+</div>
+</FieldSet>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Votre entreprise</FieldLegend>
+<div className="mb-4 grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground [&_span]:whitespace-pre-line [&_strong]:text-foreground"><strong>{editor.issuer}</strong><span>{editor.issuerAddress}</span><span>{editor.issuerDetails}</span><span>{editor.issuerSiret ? `SIRET : ${editor.issuerSiret}` : "SIRET non renseigné"}{editor.issuerVatNumber ? `\nN° TVA : ${editor.issuerVatNumber}` : ""}</span><small className="mt-1">{editor.status === "brouillon" ? "Ces informations se modifient dans Réglages et suivent les réglages tant que la facture est un brouillon." : "Informations figées au moment de l’envoi de la facture."}</small></div>
+</FieldSet>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Client</FieldLegend>
+<label>Choisir un client<select aria-invalid={Boolean(fieldErrors.client) || undefined} value={clientSelection} onChange={e => chooseClient(e.target.value)}>
+{clientSelection === LEGACY_CLIENT && <option value={LEGACY_CLIENT}>Client de cette facture (ancienne fiche)</option>}
+<option value={NEW_CLIENT}>+ Ajouter un nouveau client</option>
+{clients.map(client => <option key={client.id} value={client.id}>{clientName(client)}</option>)}
+</select><ValidationError message={fieldErrors.client}/>
+</label>
+{clientSelection === NEW_CLIENT ? <div className="mb-4 rounded-lg border bg-muted/30 p-4">
+<div className={tw.formGrid}>
+<label>Type de client<select value={clientDraft.type} onChange={e => clientField("type", e.target.value as ClientDraft["type"])}><option value="entreprise">Entreprise</option><option value="particulier">Particulier</option></select></label>
+{clientDraft.type === "entreprise" ? <label>Raison sociale<input aria-invalid={Boolean(fieldErrors["clientDraft.companyName"]) || undefined} value={clientDraft.companyName} onChange={e => clientField("companyName", e.target.value)} placeholder="Nom de l’entreprise"/><ValidationError message={fieldErrors["clientDraft.companyName"]}/></label> : <><label>Prénom<input aria-invalid={Boolean(fieldErrors["clientDraft.firstName"]) || undefined} value={clientDraft.firstName} onChange={e => clientField("firstName", e.target.value)} placeholder="Prénom"/><ValidationError message={fieldErrors["clientDraft.firstName"]}/></label><label>Nom<input aria-invalid={Boolean(fieldErrors["clientDraft.lastName"]) || undefined} value={clientDraft.lastName} onChange={e => clientField("lastName", e.target.value)} placeholder="Nom"/><ValidationError message={fieldErrors["clientDraft.lastName"]}/></label></>}
+<label>Adresse<input aria-invalid={Boolean(fieldErrors["clientDraft.addressLine1"]) || undefined} value={clientDraft.addressLine1} onChange={e => clientField("addressLine1", e.target.value)} placeholder="Numéro et voie"/><ValidationError message={fieldErrors["clientDraft.addressLine1"]}/></label>
+<label>Complément d’adresse<input value={clientDraft.addressLine2} onChange={e => clientField("addressLine2", e.target.value)} placeholder="Bâtiment, étage…"/></label>
+<label>Code postal<input value={clientDraft.postalCode} onChange={e => clientField("postalCode", e.target.value)} placeholder="69000"/></label>
+<label>Ville<input value={clientDraft.city} onChange={e => clientField("city", e.target.value)} placeholder="Lyon"/></label>
+<label>Pays<input value={clientDraft.country} onChange={e => clientField("country", e.target.value)} placeholder="France"/></label>
+<label>E-mail<input aria-invalid={Boolean(fieldErrors["clientDraft.email"]) || undefined} type="email" value={clientDraft.email} onChange={e => clientField("email", e.target.value)} placeholder="client@exemple.fr"/><ValidationError message={fieldErrors["clientDraft.email"]}/></label>
+<label>Téléphone<input type="tel" value={clientDraft.phone} onChange={e => clientField("phone", e.target.value)} placeholder="+33…"/></label>
+{clientDraft.type === "entreprise" && <><label>SIRET<input aria-invalid={Boolean(fieldErrors["clientDraft.siret"]) || undefined} inputMode="numeric" maxLength={14} value={clientDraft.siret} onChange={e => clientField("siret", e.target.value.replace(/\D/g, ""))} placeholder="14 chiffres"/><ValidationError message={fieldErrors["clientDraft.siret"]}/></label><label>N° de TVA<input aria-invalid={Boolean(fieldErrors["clientDraft.vatNumber"]) || undefined} value={clientDraft.vatNumber} onChange={e => clientField("vatNumber", e.target.value)} placeholder="FR…"/><ValidationError message={fieldErrors["clientDraft.vatNumber"]}/></label></>}
+</div>
+</div> : <div className="mb-4 grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground [&_span]:whitespace-pre-line [&_strong]:text-foreground"><strong>{editor.client}</strong><span>{editor.clientAddress || "Adresse non renseignée"}</span><ValidationError message={fieldErrors.clientAddress}/><span>{editor.clientEmail || "E-mail non renseigné"}</span><ValidationError message={fieldErrors.clientEmail}/>{editor.clientSiret ? <span>SIRET : {editor.clientSiret}{editor.clientVatNumber ? `\nN° TVA : ${editor.clientVatNumber}` : ""}</span> : null}<ValidationError message={fieldErrors.clientSiret}/><ValidationError message={fieldErrors.clientVatNumber}/></div>}
+<FieldSet className="gap-4 rounded-lg border bg-background p-4">
+<FieldLegend className="px-1" variant="label">Adresse de livraison</FieldLegend>
+<Field orientation="horizontal">
+<Checkbox id="delivery-same-as-billing" checked={deliverySameAsBilling} onCheckedChange={checked => toggleDeliverySameAsBilling(checked === true)}/>
+<FieldLabel htmlFor="delivery-same-as-billing">Identique à l’adresse de facturation</FieldLabel>
+</Field>
+<FieldDescription>{deliverySameAsBilling ? "L’adresse du client sera utilisée pour la livraison." : "Renseignez l’adresse à utiliser pour la livraison."}</FieldDescription>
+<div className={tw.formGrid}>
+<label>Adresse<input disabled={deliverySameAsBilling} aria-invalid={Boolean(fieldErrors.deliveryAddress) || undefined} value={displayedDeliveryAddress.addressLine1} onChange={e => deliveryField("addressLine1", e.target.value)} placeholder="Numéro et voie"/><ValidationError message={fieldErrors.deliveryAddress}/></label>
+<label>Complément d’adresse<input disabled={deliverySameAsBilling} value={displayedDeliveryAddress.addressLine2} onChange={e => deliveryField("addressLine2", e.target.value)} placeholder="Bâtiment, étage…"/></label>
+<label>Code postal<input disabled={deliverySameAsBilling} value={displayedDeliveryAddress.postalCode} onChange={e => deliveryField("postalCode", e.target.value)} placeholder="69000"/></label>
+<label>Ville<input disabled={deliverySameAsBilling} value={displayedDeliveryAddress.city} onChange={e => deliveryField("city", e.target.value)} placeholder="Lyon"/></label>
+<label>Pays<input disabled={deliverySameAsBilling} value={displayedDeliveryAddress.country} onChange={e => deliveryField("country", e.target.value)} placeholder="France"/></label>
+</div>
+</FieldSet>
+<div className={tw.formGrid}>
+<label>Suivi par<input aria-invalid={Boolean(fieldErrors.followedBy) || undefined} value={editor.followedBy || ""} onChange={e => field("followedBy", e.target.value)} placeholder="Nom du contact"/><ValidationError message={fieldErrors.followedBy}/>
+</label>
+<label>Objet<input aria-invalid={Boolean(fieldErrors.purpose) || undefined} value={editor.purpose || ""} onChange={e => field("purpose", e.target.value)} placeholder="Prestation de service"/><ValidationError message={fieldErrors.purpose}/>
+</label>
+</div>
+</FieldSet>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Prestations</FieldLegend>
+<ValidationError message={fieldErrors.lines}/>
+{editor.lines.map((l, index) => <div className={tw.lineForm} key={index}>
+<label>Période<input aria-invalid={Boolean(fieldErrors[`lines.${index}.period`]) || undefined} value={l.period || ""} onChange={e => line(index, "period", e.target.value)} placeholder="Période"/><ValidationError message={fieldErrors[`lines.${index}.period`]}/>
+</label>
+<label className="max-[700px]:col-span-full">Description<input aria-invalid={Boolean(fieldErrors[`lines.${index}.description`]) || undefined} value={l.description} onChange={e => line(index, "description", e.target.value)} placeholder="Prestation ou produit"/><ValidationError message={fieldErrors[`lines.${index}.description`]}/>
+</label>
+<label>Qté<input aria-invalid={Boolean(fieldErrors[`lines.${index}.quantity`]) || undefined} type="number" min="0" step="any" value={l.quantity} onChange={e => line(index, "quantity", Number(e.target.value))}/><ValidationError message={fieldErrors[`lines.${index}.quantity`]}/>
+</label>
+<label>Prix HT<input aria-invalid={Boolean(fieldErrors[`lines.${index}.unitPrice`]) || undefined} type="number" min="0" step="0.01" value={l.unitPrice} onChange={e => line(index, "unitPrice", Number(e.target.value))}/><ValidationError message={fieldErrors[`lines.${index}.unitPrice`]}/>
+</label>
+<label>Taxe %<input aria-invalid={Boolean(fieldErrors[`lines.${index}.taxRate`]) || undefined} type="number" min="0" step="0.01" value={l.taxRate} onChange={e => line(index, "taxRate", Number(e.target.value))}/><ValidationError message={fieldErrors[`lines.${index}.taxRate`]}/>
+</label>
+<button type="button" aria-label="Retirer la ligne" className={tw.iconButton} disabled={editor.lines.length === 1} onClick={() => field("lines", editor.lines.filter((_, n) => n !== index))}>
+<Trash2 size={17}/>
+</button>
+</div>)}<button type="button" className={tw.textButton} onClick={() => field("lines", [...editor.lines, blankLine()])}>
+<Plus size={16}/> Ajouter une ligne</button>
+</FieldSet>
+<FieldSet className="gap-4 rounded-xl border bg-muted/20 p-5 max-[700px]:p-4">
+<FieldLegend className="px-1">Notes et règlement</FieldLegend>
+<label>Notes et modalités<textarea aria-invalid={Boolean(fieldErrors.notes) || undefined} className="min-h-44 resize-y" rows={8} value={editor.notes} onChange={e => field("notes", e.target.value)} placeholder="Conditions de règlement, coordonnées bancaires..."/><ValidationError message={fieldErrors.notes}/>
+</label>
+<div className={tw.formTotal}>
+<span>Total TTC</span>
+<strong>{money(total(editor), editor.currency)}</strong>
+</div>
+</FieldSet>
+<div className={tw.formActions}>
+<button type="button" className={tw.outline} onClick={onCancel}>Annuler</button>
+<button type="button" className={tw.primary} disabled={saving} onClick={save}>{saving ? "Enregistrement…" : "Enregistrer la facture"}</button>
+</div>
+</div>
+</>;
+}

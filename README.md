@@ -1,6 +1,6 @@
 # RD Facturation — Next.js + Supabase
 
-Projet autonome Next.js App Router (TypeScript), avec Supabase Auth, Postgres et des règles RLS par utilisateur. Le formulaire et l'aperçu imprimable reprennent les rubriques du modèle fourni par RD Gestion & Services. Le logo PNG fourni est inclus dans `public/rd-logo.png`.
+Projet autonome Next.js App Router (TypeScript), avec Supabase Auth, Postgres et des règles RLS par utilisateur. Le formulaire et l'aperçu imprimable reprennent les rubriques du modèle fourni par RD Gestion & Services. Les logos sont dans `public/logo-web.svg` (documents, connexion) et `public/logo-web-white.svg` (barre latérale).
 
 ## Mise en route
 
@@ -11,6 +11,18 @@ Projet autonome Next.js App Router (TypeScript), avec Supabase Auth, Postgres et
 5. Pour que les messages de récupération arrivent de façon fiable en production, configurer un serveur SMTP dans Supabase Auth → SMTP Settings, puis personnaliser au besoin le modèle « Reset password ». Sans SMTP personnalisé, les limites et restrictions du service d’e-mail de démonstration Supabase s’appliquent.
 6. Exécuter `npm install`, puis `npm run dev`. Ouvrir `http://localhost:3001`.
 
+### Correction des courriers
+
+Le module Courriers utilise LanguageTool. Sans configuration supplémentaire, la route serveur s’appuie sur l’API publique gratuite (limitée à environ 20 requêtes par minute et 20 Ko par requête), suffisante pour un usage ponctuel. Pour lever ces limites, configurer une offre LanguageTool Premium ou une instance auto-hébergée :
+
+```dotenv
+LANGUAGETOOL_API_URL=https://votre-instance.example.com/v2/check
+LANGUAGETOOL_USERNAME=
+LANGUAGETOOL_API_KEY=
+```
+
+Le contenu est envoyé à LanguageTool uniquement lorsque l’utilisateur clique sur « Vérifier ». La clé éventuelle reste côté serveur.
+
 L'inscription e-mail et mot de passe peut exiger une confirmation par e-mail selon la configuration Auth. Un compte ne voit que ses propres factures. Les données ne sont pas reliées à l'ancien Site : aucune migration des factures existantes n'a été effectuée.
 
 ## Contenu
@@ -18,10 +30,11 @@ L'inscription e-mail et mot de passe peut exiger une confirmation par e-mail sel
 - Connexion, création de compte et réinitialisation du mot de passe via Supabase Auth, session SSR rafraîchie par `proxy.ts`.
 - Liste, recherche et filtres de factures ; création, modification, suppression et statuts.
 - Émetteur, client, suivi par, objet, période, lignes, taxes, échéance, coordonnées bancaires et mentions libres.
-- Aperçu avec logo, mise en page imprimable A4 et export PDF par « Imprimer / PDF » du navigateur.
+- Aperçu avec logo, mise en page imprimable A4, impression et téléchargement PDF.
 - Postgres avec RLS sur les utilisateurs, clients, factures et courriers (`user_id`), et numéro de facture unique par utilisateur.
 - Clients en colonnes structurées ; contenu flexible des factures et courriers dans `payload` JSONB.
-- Un modèle de facture et un modèle de courrier par utilisateur, enregistrés dans `public.users`.
+- Fenêtre **Réglages** (barre latérale) : raison sociale, adresse, contact, ville des courriers, coordonnées bancaires, mentions légales et pied de page, enregistrés dans `public.users`. Les brouillons suivent les réglages ; une facture envoyée ou payée conserve les informations en vigueur lors de son envoi.
+- Rédaction WYSIWYG des courriers, suggestions orthographiques et grammaticales, aperçu A4, impression et téléchargement PDF.
 
 ## Vérifications
 
@@ -31,6 +44,12 @@ L'inscription e-mail et mot de passe peut exiger une confirmation par e-mail sel
 
 Le modèle source juxtapose « TVA non applicable » et une ligne « TVA 20 % ». La nouvelle interface ne choisit pas de régime fiscal à votre place : les taux, mentions, séquence de numérotation, conditions de règlement et informations de l'entreprise doivent être vérifiés selon votre situation. L'envoi automatique d'e-mails et la migration de l'ancien Site ne sont pas inclus.
 
-## Pour poursuivre dans Codex
+## Organisation du code
 
-Décompresser ce dossier, l'ouvrir comme projet dans Codex ou le placer dans votre dépôt Git, puis ajouter `.env.local` localement. Aucun identifiant Supabase réel n'est stocké dans l'archive.
+- `app/page.tsx` : coquille (navigation, déconnexion, chargement des clients, bandeau d'erreur).
+- `components/invoice-*.tsx`, `letter-*.tsx`, `client-manager.tsx` : un module par domaine.
+- `lib/company.ts` : type des réglages de l'entreprise et valeurs par défaut (utilisées si un champ est vide en base).
+- `lib/settings.ts` : lecture et écriture des réglages dans `public.users`, instantané de l'émetteur copié sur les factures.
+- `lib/api.ts` : helpers partagés des routes API (authentification, erreurs JSON).
+
+Les routes `/api/*` renvoient un 401 JSON lorsque la session est absente (pas de redirection HTML).

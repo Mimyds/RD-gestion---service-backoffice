@@ -37,28 +37,29 @@ export default function ResetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (error) {
-      setMessage(error.message);
+      setMessage("Le mot de passe n’a pas pu être modifié. Vérifiez qu’il respecte les règles de sécurité.");
       return;
     }
-    setMessage("Votre mot de passe a été modifié. Redirection en cours…");
-    window.setTimeout(() => window.location.assign("/"), 900);
+    await supabase.auth.signOut({ scope: "global" });
+    setMessage("Votre mot de passe a été modifié. Reconnexion requise…");
+    window.setTimeout(() => window.location.assign("/login"), 900);
   }
 
   return (
     <main className="grid min-h-screen place-items-center bg-background p-5">
       <Card className="w-full max-w-[420px] gap-0 overflow-hidden border-border p-0 shadow-xl">
         <CardHeader className="gap-2 px-8 pt-8 pb-0">
-          <Image className="mb-7 h-auto w-[260px] max-w-full" src="/rd-logo.png" alt="RD Gestion & Services" width={260} height={51} priority />
+          <Image className="mb-7 h-auto w-[260px] max-w-full" src="/logo-web.svg" alt="RD Gestion & Services" width={260} height={51} priority />
           <CardTitle><h1 className="m-0 text-[32px] font-medium text-foreground">Nouveau mot de passe</h1></CardTitle>
           <CardDescription className="text-base">Choisissez un nouveau mot de passe pour votre compte.</CardDescription>
         </CardHeader>
         <CardContent className="px-8 pt-7 pb-7">
-          <form onSubmit={submit}>
+          <form method="post" onSubmit={submit}>
             <FieldGroup className="gap-5">
               <Field>
                 <FieldLabel htmlFor="new-password">Nouveau mot de passe</FieldLabel>
                 <InputGroup className="h-11">
-                  <InputGroupInput id="new-password" type={showPassword ? "text" : "password"} required minLength={6} autoComplete="new-password" disabled={!ready || busy} value={password} onChange={(event) => setPassword(event.target.value)} />
+                  <InputGroupInput id="new-password" type={showPassword ? "text" : "password"} required minLength={10} autoComplete="new-password" disabled={!ready || busy} value={password} onChange={(event) => setPassword(event.target.value)} />
                   <InputGroupAddon align="inline-end">
                     <InputGroupButton size="icon-sm" aria-label={showPassword ? "Masquer les mots de passe" : "Afficher les mots de passe"} aria-pressed={showPassword} onClick={() => setShowPassword((value) => !value)}>
                       {showPassword ? <EyeOff /> : <Eye />}
@@ -69,7 +70,7 @@ export default function ResetPasswordPage() {
               <Field>
                 <FieldLabel htmlFor="password-confirmation">Confirmer le mot de passe</FieldLabel>
                 <InputGroup className="h-11">
-                  <InputGroupInput id="password-confirmation" type={showPassword ? "text" : "password"} required minLength={6} autoComplete="new-password" disabled={!ready || busy} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
+                  <InputGroupInput id="password-confirmation" type={showPassword ? "text" : "password"} required minLength={10} autoComplete="new-password" disabled={!ready || busy} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
                 </InputGroup>
               </Field>
               <Button className="h-11 w-full text-base" type="submit" size="lg" disabled={!ready || busy}>{busy ? "Modification…" : "Modifier le mot de passe"}</Button>
