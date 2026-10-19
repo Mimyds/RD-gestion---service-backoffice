@@ -68,7 +68,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 <div className={tw.headerInner}>
 <Link href="/factures" className={tw.brand} aria-label="Accueil RD Gestion & Services"><Image src="/logo-web.svg" alt="RD Gestion & Services" width={190} height={37} priority/></Link>
 <nav aria-label="Navigation principale" className={tw.nav}>
-{navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined} className={cn(tw.navButton, isActive(href) && "bg-secondary text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary")} onClick={() => setError("")}>
+{navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined} className={cn(tw.navButton, isActive(href) && "text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary")} onClick={() => setError("")}>
 <Icon/> {label}</Link>)}
 </nav>
 <AccountMenu onSettings={() => setSettingsOpen(true)} onError={setError}/>
