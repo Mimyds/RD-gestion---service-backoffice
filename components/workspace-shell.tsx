@@ -1,6 +1,6 @@
 "use client";
 import { type ReactNode, useState } from "react";
-import { CircleUserRound, FileText, LogOut, Mails, Settings, UsersRound } from "lucide-react";
+import { FileText, LogOut, Mails, Settings, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,8 +28,9 @@ const tw = {
   content: "mx-auto max-w-[1380px] px-8 py-12 max-lg:px-5 max-sm:px-4 max-sm:py-8",
 } as const;
 
-function AccountMenu({ onSettings, onError }: { onSettings: () => void; onError: (message: string) => void }) {
+function AccountMenu({ email, onSettings, onError }: { email: string; onSettings: () => void; onError: (message: string) => void }) {
   const [loggingOut, setLoggingOut] = useState(false);
+  const initial = email.trim().charAt(0).toLocaleUpperCase("fr-FR") || "?";
 
   async function logOut() {
     setLoggingOut(true);
@@ -45,7 +46,10 @@ function AccountMenu({ onSettings, onError }: { onSettings: () => void; onError:
 
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="ghost" className="h-11 shrink-0 rounded-xl px-3 text-foreground"><CircleUserRound data-icon="inline-start"/> <span className="max-sm:sr-only">Compte</span></Button>
+      <Button variant="ghost" className="h-11 shrink-0 rounded-xl px-3 text-foreground" aria-label={email ? `Compte ${email}` : "Compte"}>
+        <span aria-hidden="true" className="grid size-7 place-items-center rounded-full bg-[#001B48] text-xs font-bold text-white">{initial}</span>
+        <span className="max-sm:sr-only">Compte</span>
+      </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent side="bottom" align="end">
       <DropdownMenuItem onSelect={onSettings}><Settings/> Réglages</DropdownMenuItem>
@@ -57,7 +61,7 @@ function AccountMenu({ onSettings, onError }: { onSettings: () => void; onError:
   </DropdownMenu>;
 }
 
-export function WorkspaceShell({ children }: { children: ReactNode }) {
+export function WorkspaceShell({ children, userEmail }: { children: ReactNode; userEmail: string }) {
   const pathname = usePathname();
   const { company, setCompany, error, setError } = useWorkspace();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -71,7 +75,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 {navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined} className={cn(tw.navButton, isActive(href) && "text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary")} onClick={() => setError("")}>
 <Icon/> {label}</Link>)}
 </nav>
-<AccountMenu onSettings={() => setSettingsOpen(true)} onError={setError}/>
+<AccountMenu email={userEmail} onSettings={() => setSettingsOpen(true)} onError={setError}/>
 </div>
 </header>
 <main className={tw.main}>
