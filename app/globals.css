@@ -3,25 +3,25 @@
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 
 :root {
-  --background: #f5f7f8;
-  --foreground: #193447;
-  --card: #fff;
-  --card-foreground: #193447;
-  --popover: #fff;
-  --popover-foreground: #193447;
-  --primary: #173b4e;
+  --background: #f3f6f9;
+  --foreground: #001b48;
+  --card: #ffffff;
+  --card-foreground: #001b48;
+  --popover: #ffffff;
+  --popover-foreground: #001b48;
+  --primary: #fe763f;
   --primary-foreground: #fff;
-  --secondary: #e8f1f2;
-  --secondary-foreground: #173b4e;
-  --muted: #eef3f4;
-  --muted-foreground: #637884;
-  --accent: #e2f4ef;
-  --accent-foreground: #173b4e;
-  --destructive: #b53f41;
-  --border: #dce6e9;
-  --input: #dce6e9;
-  --ring: #3a9f98;
-  --radius: .75rem;
+  --secondary: #edf2f8;
+  --secondary-foreground: #001b48;
+  --muted: #f1f4f8;
+  --muted-foreground: #65738a;
+  --accent: #edf2f8;
+  --accent-foreground: #001b48;
+  --destructive: #c43d4b;
+  --border: #dde4ec;
+  --input: #d7e0e9;
+  --ring: #fe763f;
+  --radius: .875rem;
 }
 
 @theme inline {
@@ -46,7 +46,7 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --font-sans: Arial, Helvetica, sans-serif;
+  --font-sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 @layer base {
@@ -60,7 +60,7 @@
   }
 
   body {
-    @apply m-0 bg-background text-base text-foreground;
+    @apply m-0 bg-background text-base text-foreground antialiased;
   }
 
   button,
@@ -72,6 +72,10 @@
 
   button {
     @apply cursor-pointer disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-foreground;
   }
 }
 
