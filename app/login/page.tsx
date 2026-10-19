@@ -1,10 +1,9 @@
 "use client";
 import { useState } from "react";
-import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
@@ -34,43 +33,35 @@ export default function Login() {
     }
   }
   return (
-    <main className="grid min-h-screen place-items-center bg-background p-5 before:fixed before:inset-x-0 before:top-0 before:h-1 before:bg-primary">
-      <Card className="w-full max-w-[440px] gap-0 overflow-hidden border-border p-0">
-        <CardHeader className="gap-2 px-8 pt-8 pb-0">
-          <Image className="mb-7 h-auto w-[260px] max-w-full" src="/logo-web.svg" alt="RD Gestion & Services" width={260} height={51} priority />
-          <CardTitle><h1 className="m-0 text-[32px] font-medium text-foreground">{mode === "login" ? "Connexion" : "Mot de passe oublié"}</h1></CardTitle>
-          <CardDescription className="text-base">{mode === "forgot" ? "Recevez un lien pour choisir un nouveau mot de passe." : "Accédez à votre espace de facturation."}</CardDescription>
-        </CardHeader>
-        <CardContent className="px-8 pt-7 pb-3">
-          <form method="post" onSubmit={submit}>
-            <FieldGroup className="gap-5">
-              <Field>
-                <FieldLabel htmlFor="email">Adresse e-mail</FieldLabel>
-                <Input className="h-11" id="email" type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />
-              </Field>
-              {mode !== "forgot" && <Field>
-                  <FieldLabel htmlFor="password">Mot de passe</FieldLabel>
-                  <InputGroup className="h-11">
-                    <InputGroupInput id="password" type={showPassword ? "text" : "password"} required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
-                    <InputGroupAddon align="inline-end">
-                      <InputGroupButton size="icon-sm" aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>
-                        {showPassword ? <EyeOff /> : <Eye />}
-                      </InputGroupButton>
-                    </InputGroupAddon>
-                  </InputGroup>
-                  <Button className="h-auto self-end p-0 text-[13px]" type="button" variant="link" onClick={() => { setMode("forgot"); setMessage(""); }}>Mot de passe oublié ?</Button>
-                </Field>}
-              <Button className="h-11 w-full text-base" type="submit" size="lg" disabled={busy}>{busy ? "Veuillez patienter…" : mode === "login" ? "Se connecter" : "Envoyer le lien"}</Button>
-            </FieldGroup>
-          </form>
-          {message && <p role="status" className="mt-4 text-sm text-muted-foreground">{message}</p>}
-        </CardContent>
-        <CardFooter className="px-8 pb-7">
-          {mode === "forgot"
-            ? <Button className="px-1" type="button" variant="link" onClick={() => { setMode("login"); setMessage(""); }}>Retour à la connexion</Button>
-            : <p className="text-sm text-muted-foreground">Accès réservé aux utilisateurs invités.</p>}
-        </CardFooter>
-      </Card>
-    </main>
+    <AuthShell
+      title={mode === "login" ? "Connexion" : "Mot de passe oublié"}
+      description={mode === "forgot" ? "Recevez un lien sécurisé pour choisir un nouveau mot de passe." : "Accédez à votre espace de gestion."}
+      footer={mode === "forgot"
+        ? <Button className="px-0" type="button" variant="link" onClick={() => { setMode("login"); setMessage(""); }}>Retour à la connexion</Button>
+        : <p className="text-sm text-muted-foreground">Accès réservé aux utilisateurs invités.</p>}
+    >
+      <form method="post" onSubmit={submit}>
+        <FieldGroup className="gap-6">
+          <Field>
+            <FieldLabel htmlFor="email">Adresse e-mail</FieldLabel>
+            <Input className="h-12 rounded-xl px-4" id="email" type="email" required autoComplete="email" placeholder="nom@entreprise.fr" value={email} onChange={e => setEmail(e.target.value)} />
+          </Field>
+          {mode !== "forgot" && <Field>
+            <FieldLabel htmlFor="password">Mot de passe</FieldLabel>
+            <InputGroup className="h-12 rounded-xl">
+              <InputGroupInput id="password" type={showPassword ? "text" : "password"} required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton size="icon-sm" aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+            <Button className="h-auto self-end p-0 text-sm" type="button" variant="link" onClick={() => { setMode("forgot"); setMessage(""); }}>Mot de passe oublié ?</Button>
+          </Field>}
+          <Button className="h-12 w-full text-base shadow-[0_12px_26px_rgba(254,118,63,0.22)]" type="submit" size="lg" disabled={busy}>{busy ? "Veuillez patienter…" : mode === "login" ? "Se connecter" : "Envoyer le lien"}</Button>
+        </FieldGroup>
+      </form>
+      {message ? <p role="status" className="mt-5 rounded-xl bg-secondary px-4 py-3 text-sm leading-6 text-secondary-foreground">{message}</p> : null}
+    </AuthShell>
   );
 }
