@@ -5,6 +5,7 @@ import type { ClientRecord } from "@/components/client-manager";
 import { InvoiceEditor } from "@/components/invoice-editor";
 import { InvoicePaper } from "@/components/invoice-paper";
 import { ScaledPage } from "@/components/scaled-page";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fileName, formatDate } from "@/lib/dates";
 import type { CompanySettings } from "@/lib/company";
@@ -15,19 +16,19 @@ import { downloadPdf, invoicePdf, printPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 
 const tw = {
-  heading: "mb-8 flex items-end justify-between gap-5 max-[700px]:flex-col max-[700px]:items-stretch",
-  eyebrow: "mb-2 text-xs font-bold tracking-[0.15em] text-ring",
-  headingTitle: "mb-3 text-5xl leading-none font-medium tracking-[-0.045em] max-[700px]:text-[39px]",
+  heading: "mb-9 flex items-end justify-between gap-5 max-[700px]:flex-col max-[700px]:items-stretch",
+  eyebrow: "hidden",
+  headingTitle: "mb-3 text-[46px] leading-none font-semibold tracking-[-0.04em] max-[700px]:text-[38px]",
   headingText: "m-0 leading-6 text-muted-foreground",
   primary: "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-transparent bg-primary px-4 py-2.5 font-semibold whitespace-nowrap text-primary-foreground shadow-sm hover:bg-primary/90",
   outline: "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border bg-background px-4 py-2.5 font-semibold whitespace-nowrap text-foreground hover:bg-accent",
-  stats: "mb-7 grid grid-cols-3 gap-4 max-[700px]:grid-cols-1 max-[700px]:gap-2.5",
-  stat: "min-h-36 rounded-xl border bg-card px-6 py-5 shadow-sm max-[700px]:min-h-0 max-[700px]:p-4",
-  statValue: "my-4 block text-[32px] font-medium tracking-tight max-[700px]:my-2 max-[700px]:text-[27px]",
-  listPanel: "min-h-90 rounded-xl border bg-card shadow-sm",
-  listHeading: "flex items-center justify-between gap-5 border-b px-7 py-6 max-[1050px]:flex-col max-[1050px]:items-stretch max-[700px]:p-5",
-  tools: "flex gap-2 max-[1050px]:w-full max-[700px]:flex-col",
-  search: "flex w-64 items-center gap-2 rounded-lg border px-3 text-muted-foreground max-[1050px]:flex-1 max-[700px]:min-h-10 max-[700px]:w-full [&_input]:w-full [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-sm [&_input]:outline-none [&_svg]:size-4 [&_svg]:shrink-0",
+  stats: "mb-6 grid grid-cols-3 divide-x overflow-hidden rounded-2xl border bg-card shadow-[0_12px_32px_rgba(0,27,72,0.045)] max-[700px]:grid-cols-1 max-[700px]:divide-x-0 max-[700px]:divide-y",
+  stat: "px-7 py-5 max-[700px]:p-4",
+  statValue: "my-2 block text-[28px] font-semibold tracking-tight max-[700px]:text-[25px]",
+  listPanel: "min-h-90 overflow-hidden rounded-2xl border bg-card shadow-[0_16px_45px_rgba(0,27,72,0.055)]",
+  listHeading: "flex items-end justify-between gap-5 border-b px-7 py-6 max-[1050px]:flex-col max-[1050px]:items-stretch max-[700px]:p-5",
+  tools: "flex flex-wrap items-center gap-2 max-[1050px]:w-full",
+  search: "mr-auto flex min-h-10 w-72 items-center gap-2 rounded-xl border bg-background px-3 text-muted-foreground max-[1050px]:flex-1 max-[700px]:w-full max-[700px]:basis-full [&_input]:w-full [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-sm [&_input]:outline-none [&_svg]:size-4 [&_svg]:shrink-0",
   empty: "px-5 py-14 text-center text-muted-foreground",
   emptyIcon: "mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-accent text-ring",
   iconButton: "inline-grid place-items-center border-0 bg-transparent p-2.5 text-muted-foreground",
@@ -115,8 +116,8 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
 <h1 className={tw.headingTitle}>Factures</h1>
 <p className={tw.headingText}>Créez, retrouvez et suivez vos factures au même endroit.</p>
 </div>
-<button className={tw.primary} onClick={start}>
-<Plus size={18}/> Nouvelle facture</button>
+<Button size="lg" className="h-12 rounded-xl px-5 text-base shadow-[0_10px_24px_rgba(254,118,63,.22)]" onClick={start}>
+<Plus data-icon="inline-start"/> Nouvelle facture</Button>
 </div>
 <div className={tw.stats}>
 <div className={tw.stat}>
@@ -146,12 +147,7 @@ export function InvoiceManager({ clients, clientsLoading, company, error, onErro
 <Search size={17}/>
 <input aria-label="Rechercher une facture" placeholder="Client ou numéro..." value={query} onChange={e => setQuery(e.target.value)}/>
 </label>
-<select className="rounded-lg border bg-background px-2.5 py-2 text-sm text-foreground" aria-label="Filtrer par statut" value={filter} onChange={e => setFilter(e.target.value)}>
-<option value="toutes">Tous les statuts</option>
-<option value="brouillon">Brouillons</option>
-<option value="envoyée">Envoyées</option>
-<option value="payée">Payées</option>
-</select>
+{[["toutes", "Toutes"], ["brouillon", "Brouillons"], ["envoyée", "Envoyées"], ["payée", "Payées"]].map(([value, label]) => <Button key={value} type="button" size="sm" variant={filter === value ? "secondary" : "outline"} className={cn("rounded-xl", filter === value && "border-[#001B48] bg-[#001B48] text-white hover:bg-[#001B48]/90 hover:text-white")} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</Button>)}
 </div>
 </div>{loading ? <div className={tw.empty}>Chargement de vos factures…</div> : shown.length === 0 ? <div className={tw.empty}>
 <span className={tw.emptyIcon}>
