@@ -264,25 +264,24 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
   const sent = letters.filter((letter) => letter.status === "envoyé").length;
 
   return <>
-    <div className="mb-8 flex items-end justify-between gap-5 max-sm:flex-col max-sm:items-stretch">
+    <div className="mb-9 flex items-end justify-between gap-5 max-sm:flex-col max-sm:items-stretch">
       <div>
-        <div className="mb-2 text-xs font-bold tracking-[0.15em] text-ring">GESTION ADMINISTRATIVE</div>
-        <h1 className="mb-3 text-5xl leading-none font-medium tracking-[-0.045em] max-sm:text-[39px]">Courriers</h1>
+        <h1 className="mb-3 text-[46px] leading-none font-semibold tracking-[-0.04em] max-sm:text-[38px]">Courriers</h1>
         <p className="m-0 leading-6 text-muted-foreground">Rédigez, corrigez et conservez vos courriers professionnels.</p>
       </div>
-      <Button size="lg" onClick={() => openEditor(emptyLetter())}><Plus data-icon="inline-start"/> Nouveau courrier</Button>
+      <Button size="lg" className="h-12 rounded-xl px-5 text-base shadow-[0_10px_24px_rgba(254,118,63,.22)]" onClick={() => openEditor(emptyLetter())}><Plus data-icon="inline-start"/> Nouveau courrier</Button>
     </div>
 
-    <div className="mb-7 grid grid-cols-3 gap-4 max-sm:grid-cols-1 max-sm:gap-2.5">
-      <div className="min-h-36 rounded-xl border bg-card p-6 shadow-sm max-sm:min-h-0 max-sm:p-4"><span className="block text-sm font-semibold text-muted-foreground">Courriers enregistrés</span><strong className="my-4 block text-[32px] font-medium tracking-tight max-sm:my-2">{letters.length}</strong><small className="text-muted-foreground">Tous statuts confondus</small></div>
-      <div className="min-h-36 rounded-xl border bg-card p-6 shadow-sm max-sm:min-h-0 max-sm:p-4"><span className="block text-sm font-semibold text-muted-foreground">Brouillons</span><strong className="my-4 block text-[32px] font-medium tracking-tight max-sm:my-2">{drafts}</strong><small className="text-muted-foreground">À finaliser</small></div>
-      <div className="min-h-36 rounded-xl border bg-card p-6 shadow-sm max-sm:min-h-0 max-sm:p-4"><span className="block text-sm font-semibold text-muted-foreground">Envoyés</span><strong className="my-4 block text-[32px] font-medium tracking-tight max-sm:my-2">{sent}</strong><small className="text-muted-foreground">Courriers transmis</small></div>
+    <div className="mb-6 grid grid-cols-3 divide-x overflow-hidden rounded-2xl border bg-card shadow-[0_12px_32px_rgba(0,27,72,0.045)] max-sm:grid-cols-1 max-sm:divide-x-0 max-sm:divide-y">
+      <div className="px-7 py-5 max-sm:p-4"><span className="block text-sm font-semibold text-muted-foreground">Courriers enregistrés</span><strong className="my-2 block text-[28px] font-semibold tracking-tight max-sm:text-[25px]">{letters.length}</strong><small className="text-muted-foreground">Tous statuts confondus</small></div>
+      <div className="px-7 py-5 max-sm:p-4"><span className="block text-sm font-semibold text-muted-foreground">Brouillons</span><strong className="my-2 block text-[28px] font-semibold tracking-tight max-sm:text-[25px]">{drafts}</strong><small className="text-muted-foreground">À finaliser</small></div>
+      <div className="px-7 py-5 max-sm:p-4"><span className="block text-sm font-semibold text-muted-foreground">Envoyés</span><strong className="my-2 block text-[28px] font-semibold tracking-tight max-sm:text-[25px]">{sent}</strong><small className="text-muted-foreground">Courriers transmis</small></div>
     </div>
 
-    <section className="min-h-90 rounded-xl border bg-card shadow-sm">
+    <section className="min-h-90 overflow-hidden rounded-2xl border bg-card shadow-[0_16px_45px_rgba(0,27,72,0.055)]">
       <div className="flex items-center justify-between gap-5 border-b p-6 max-lg:flex-col max-lg:items-stretch max-sm:p-5">
         <div><h2 className="mb-1 text-lg font-semibold">Vos courriers</h2><p className="m-0 text-sm leading-6 text-muted-foreground">Retrouvez un courrier par objet, destinataire ou référence.</p></div>
-        <label className="flex w-72 items-center gap-2 rounded-lg border px-3 text-muted-foreground max-lg:w-full"><Search className="size-4 shrink-0"/><input aria-label="Rechercher un courrier" className="w-full border-0 bg-transparent py-2 text-sm outline-none" placeholder="Objet, destinataire…" value={query} onChange={(event) => setQuery(event.target.value)}/></label>
+        <label className="flex min-h-10 w-72 items-center gap-2 rounded-xl border bg-background px-3 text-muted-foreground max-lg:w-full"><Search className="size-4 shrink-0"/><input aria-label="Rechercher un courrier" className="w-full border-0 bg-transparent py-2 text-sm outline-none" placeholder="Objet, destinataire…" value={query} onChange={(event) => setQuery(event.target.value)}/></label>
       </div>
       {loading ? <div className="px-5 py-14 text-center text-muted-foreground">Chargement de vos courriers…</div> : shown.length === 0 ? <div className="px-5 py-14 text-center text-muted-foreground">
         <span className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-accent text-ring"><Mail/></span>
