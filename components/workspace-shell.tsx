@@ -46,8 +46,8 @@ function AccountMenu({ email, onSettings, onError }: { email: string; onSettings
 
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="ghost" className="h-11 shrink-0 rounded-xl px-3 text-foreground" aria-label={email ? `Compte ${email}` : "Compte"}>
-        <span aria-hidden="true" className="grid size-7 place-items-center rounded-full bg-[#001B48] text-xs font-bold text-white">{initial}</span>
+      <Button variant="ghost" className="h-11 shrink-0 rounded-xl px-3 text-foreground max-md:ml-auto max-sm:size-11 max-sm:p-0" aria-label={email ? `Compte ${email}` : "Compte"}>
+        <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-[#001B48] text-sm font-bold leading-none text-white">{initial}</span>
         <span className="max-sm:sr-only">Compte</span>
       </Button>
     </DropdownMenuTrigger>
