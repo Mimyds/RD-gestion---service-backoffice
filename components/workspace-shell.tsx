@@ -1,12 +1,13 @@
 "use client";
 import { type ReactNode, useState } from "react";
-import { FileText, Mails, Settings, UsersRound } from "lucide-react";
+import { CircleUserRound, FileText, LogOut, Mails, Settings, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ErrorBanner } from "@/components/error-banner";
 import { SettingsDialog } from "@/components/settings-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useWorkspace } from "@/components/workspace";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,37 @@ const tw = {
   content: "mx-auto max-w-[1320px] px-[4.5%] py-11 max-[1050px]:px-[3%] max-[700px]:px-4 max-[700px]:py-7",
 } as const;
 
+function AccountMenu({ compact = false, onSettings, onError }: { compact?: boolean; onSettings: () => void; onError: (message: string) => void }) {
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function logOut() {
+    setLoggingOut(true);
+    onError("");
+    const { error } = await createClient().auth.signOut();
+    if (error) {
+      onError("La déconnexion a échoué. Veuillez réessayer.");
+      setLoggingOut(false);
+      return;
+    }
+    window.location.assign("/login");
+  }
+
+  return <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <button aria-label={compact ? "Compte" : undefined} className={compact ? "grid place-items-center rounded-lg border-0 bg-transparent px-3 text-muted-foreground [&_svg]:size-4" : cn(tw.navButton, "mt-auto mb-3")}>
+        <CircleUserRound/> {compact ? null : "Compte"}
+      </button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent side={compact ? "bottom" : "right"} align="end">
+      <DropdownMenuItem onSelect={onSettings}><Settings/> Réglages</DropdownMenuItem>
+      <DropdownMenuSeparator/>
+      <DropdownMenuItem variant="destructive" disabled={loggingOut} onSelect={() => void logOut()}>
+        <LogOut/> {loggingOut ? "Déconnexion…" : "Se déconnecter"}
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>;
+}
+
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { company, setCompany, error, setError } = useWorkspace();
@@ -44,20 +76,19 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 {navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined} className={cn(tw.navButton, isActive(href) && "bg-white/10 text-white")} onClick={() => setError("")}>
 <Icon/> {label}</Link>)}
 </nav>
-<button className={cn(tw.navButton, "mt-auto mb-3", settingsOpen && "bg-white/10 text-white")} onClick={() => setSettingsOpen(true)}>
-<Settings/> Réglages</button>
+<AccountMenu onSettings={() => setSettingsOpen(true)} onError={setError}/>
 <div className={tw.sideBottom}>Factures, clients et courriers réunis dans un même espace.</div>
 </aside>
 <main className={tw.main}>
 <header className={tw.topbar}>
 <div className={tw.mobileBrand}>RD Gestion & Services</div>
-<span className="max-[700px]:text-xs">Votre espace de facturation <b className="ml-4 font-semibold text-ring max-[700px]:ml-1">● Privé</b> <button className="ml-4 border-0 bg-transparent text-[13px] text-foreground underline" onClick={async () => { await createClient().auth.signOut(); window.location.assign("/login"); }}>Déconnexion</button>
+<span className="max-[700px]:text-xs">Votre espace de facturation <b className="ml-4 font-semibold text-ring max-[700px]:ml-1">● Privé</b>
 </span>
 </header>
 <nav aria-label="Navigation mobile" className="hidden gap-1 border-b bg-card px-4 py-2 max-[700px]:flex print:hidden">
 {navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined} className={cn("flex flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-muted-foreground [&_svg]:size-4", isActive(href) && "bg-accent text-foreground")} onClick={() => setError("")}>
 <Icon/> {label}</Link>)}
-<button aria-label="Réglages" className="grid place-items-center rounded-lg border-0 bg-transparent px-3 text-muted-foreground [&_svg]:size-4" onClick={() => setSettingsOpen(true)}><Settings/></button>
+<AccountMenu compact onSettings={() => setSettingsOpen(true)} onError={setError}/>
 </nav>
 <div className={tw.content}>
 <ErrorBanner className="mb-6" message={error} onDismiss={() => setError("")}/>
