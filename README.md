@@ -8,8 +8,9 @@ Projet autonome Next.js App Router (TypeScript), avec Supabase Auth, Postgres et
 2. Appliquer, dans l’ordre, les migrations du dossier `supabase/migrations`. Sur une base déjà initialisée, appliquer uniquement les nouvelles migrations non encore exécutées.
 3. Copier `.env.example` vers `.env.local`, puis remplacer l'URL et la clé **publishable** par les valeurs de votre projet (Project Settings → API Keys). Ne jamais utiliser une clé secrète ou `service_role` dans `NEXT_PUBLIC_*`.
 4. Dans Supabase Auth → URL Configuration, régler l'URL du site sur `http://localhost:3001` et ajouter `http://localhost:3001/**` aux URL de redirection. Ajouter également `https://votre-domaine/auth/callback` lors du déploiement. Cette URL sert à la confirmation de compte et à la réinitialisation du mot de passe.
-5. Pour que les messages de récupération arrivent de façon fiable en production, configurer un serveur SMTP dans Supabase Auth → SMTP Settings, puis personnaliser au besoin le modèle « Reset password ». Sans SMTP personnalisé, les limites et restrictions du service d’e-mail de démonstration Supabase s’appliquent.
-6. Exécuter `npm install`, puis `npm run dev`. Ouvrir `http://localhost:3001`.
+5. Dans Supabase Auth → Email Templates → Invite user, utiliser ce lien dans le bouton d’invitation : `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite`. Le callback crée la session temporaire puis dirige l’utilisateur vers la création de son mot de passe. Le modèle local équivalent se trouve dans `supabase/templates/invite.html`.
+6. Pour que les messages d’invitation et de récupération arrivent de façon fiable en production, configurer un serveur SMTP dans Supabase Auth → SMTP Settings. Sans SMTP personnalisé, les limites et restrictions du service d’e-mail de démonstration Supabase s’appliquent.
+7. Exécuter `npm install`, puis `npm run dev`. Ouvrir `http://localhost:3001`.
 
 ### Correction des courriers
 
