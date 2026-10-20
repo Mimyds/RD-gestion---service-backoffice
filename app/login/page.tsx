@@ -18,13 +18,18 @@ export default function Login() {
 
     const fragment = new URLSearchParams(window.location.hash.slice(1));
     if (fragment.get("type") !== "invite") return;
+    const accessToken = fragment.get("access_token");
+    const refreshToken = fragment.get("refresh_token");
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
 
-    createClient().auth.getSession().then(({ data, error }) => {
-      if (!error && data.session) {
-        window.location.replace("/auth/reset-password?flow=invite");
-      } else {
-        setMessage("Ce lien d’invitation est invalide ou a expiré. Demandez une nouvelle invitation.");
-      }
+    if (!accessToken || !refreshToken) {
+      setMessage("Ce lien d’invitation est invalide ou a expiré. Demandez une nouvelle invitation.");
+      return;
+    }
+
+    createClient().auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ data, error }) => {
+      if (!error && data.session) window.location.replace("/auth/reset-password?flow=invite");
+      else setMessage("Ce lien d’invitation est invalide ou a expiré. Demandez une nouvelle invitation.");
     });
   }, []);
   async function submit(e: React.FormEvent) {
