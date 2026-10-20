@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/auth-shell";
@@ -9,6 +9,24 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 export default function Login() {
   const [email, setEmail] = useState(""), [password, setPassword] = useState(""), [showPassword, setShowPassword] = useState(false), [mode, setMode] = useState<"login"|"forgot">("login"), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const queryError = new URLSearchParams(window.location.search).get("error");
+    if (queryError === "invitation") setMessage("Ce lien d’invitation est invalide ou a expiré. Demandez une nouvelle invitation.");
+    else if (queryError === "recovery") setMessage("Ce lien de réinitialisation est invalide ou a expiré.");
+    else if (queryError === "confirmation") setMessage("Ce lien de confirmation est invalide ou a expiré.");
+
+    const fragment = new URLSearchParams(window.location.hash.slice(1));
+    if (fragment.get("type") !== "invite") return;
+
+    createClient().auth.getSession().then(({ data, error }) => {
+      if (!error && data.session) {
+        window.location.replace("/auth/reset-password?flow=invite");
+      } else {
+        setMessage("Ce lien d’invitation est invalide ou a expiré. Demandez une nouvelle invitation.");
+      }
+    });
+  }, []);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
