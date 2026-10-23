@@ -20,6 +20,7 @@ const sections: { title: string; fields: FieldConfig[] }[] = [
   {
     title: "Entreprise",
     fields: [
+      { key: "accountName", label: "Nom et prénom du compte", description: "Utilisés par défaut dans « Suivi par » sur les factures." },
       { key: "name", label: "Raison sociale" },
       { key: "address", label: "Adresse", multiline: true, description: "Une ligne par élément d’adresse si besoin." },
       { key: "email", label: "E-mail", type: "email" },
@@ -59,8 +60,8 @@ function SettingsForm({ initial, onCancel, onSaved }: { initial: CompanySettings
 
   async function save() {
     setValidationAttempted(true);
-    if (!values.name.trim() || !values.address.trim()) {
-      setError("La raison sociale et l’adresse sont requises.");
+    if (!values.accountName.trim() || !values.name.trim() || !values.address.trim()) {
+      setError("Le nom du compte, la raison sociale et l’adresse sont requis.");
       return;
     }
     if (values.siret && !isValidSiret(values.siret)) {

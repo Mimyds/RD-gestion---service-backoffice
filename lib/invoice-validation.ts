@@ -23,10 +23,10 @@ export function validateInvoice(input: any): InvoiceFieldErrors {
   else if (input.clientSiret && !isValidSiret(input.clientSiret)) errors.clientSiret = "Le SIRET doit comporter 14 chiffres et être valide.";
   if (!sized(input.clientVatNumber, 20)) errors.clientVatNumber = "Le numéro de TVA ne doit pas dépasser 20 caractères.";
   else if (input.clientVatNumber && !isValidFrenchVatNumber(input.clientVatNumber)) errors.clientVatNumber = "Le numéro de TVA doit comporter FR suivi de 11 chiffres valides.";
-  if (!sized(input.deliveryAddress, 1_000)) errors.deliveryAddress = "L’adresse de livraison ne doit pas dépasser 1 000 caractères.";
   if (!sized(input.purchaseOrderNumber, 120)) errors.purchaseOrderNumber = "Le numéro de bon de commande ne doit pas dépasser 120 caractères.";
   if (!sized(input.notes, 5_000)) errors.notes = "Les notes ne doivent pas dépasser 5 000 caractères.";
-  if (input.followedBy !== undefined && !sized(input.followedBy, 200)) errors.followedBy = "Le nom du contact ne doit pas dépasser 200 caractères.";
+  if (typeof input.followedBy !== "string" || !input.followedBy.trim()) errors.followedBy = "Le nom du contact est requis.";
+  else if (input.followedBy.length > 200) errors.followedBy = "Le nom du contact ne doit pas dépasser 200 caractères.";
   if (input.purpose !== undefined && !sized(input.purpose, 300)) errors.purpose = "L’objet ne doit pas dépasser 300 caractères.";
 
   if (!["services", "biens", "mixte"].includes(input.operationCategory)) errors.operationCategory = "Sélectionnez une nature d’opération valide.";
