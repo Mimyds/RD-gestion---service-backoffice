@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { DEFAULT_COMPANY } from "@/lib/company";
 import { formatDate } from "@/lib/dates";
-import { type Invoice, money, subtotal, taxBreakdown, total } from "@/lib/invoices";
+import { type Invoice, money, total } from "@/lib/invoices";
 import { cn } from "@/lib/utils";
 import { sirenFromSiret } from "@/lib/siret";
 
@@ -16,15 +16,14 @@ export function InvoicePaper({ invoice, issuerCity }: { invoice: Invoice; issuer
 <strong>{invoice.issuer}</strong>
 <p>{invoice.issuerAddress}</p>
 <p>{invoice.issuerDetails}</p>
-<p>{invoice.issuerSiret ? `SIREN : ${sirenFromSiret(invoice.issuerSiret)}\nSIRET : ${invoice.issuerSiret}` : "SIRET non renseigné"}{invoice.issuerVatNumber ? `\nN° TVA : ${invoice.issuerVatNumber}` : ""}</p>
+<p>{invoice.issuerSiret ? `SIREN : ${sirenFromSiret(invoice.issuerSiret)}\nSIRET : ${invoice.issuerSiret}` : "SIRET non renseigné"}</p>
 </div>
 </div>
 <div className="pl-14 uppercase [&_p]:my-1 [&_p]:whitespace-pre-line [&_p]:text-[11px] [&_p]:leading-[1.4] [&_strong]:mb-2 [&_strong]:block [&_strong]:text-[13px]">
 <strong>{invoice.client}</strong>
 <p>{invoice.clientAddress}</p>
 <p>{invoice.clientEmail}</p>
-{invoice.clientSiret ? <p>SIREN : {sirenFromSiret(invoice.clientSiret)}{"\n"}SIRET : {invoice.clientSiret}{invoice.clientVatNumber ? `\nN° TVA : ${invoice.clientVatNumber}` : ""}</p> : null}
-{invoice.deliveryAddress ? <p>Adresse de livraison :{"\n"}{invoice.deliveryAddress}</p> : null}
+{invoice.clientSiret ? <p>SIREN : {sirenFromSiret(invoice.clientSiret)}{"\n"}SIRET : {invoice.clientSiret}</p> : null}
 </div>
 </div>
 <h2 className="mt-12 mb-8 text-[19px] font-normal tracking-[0.01em]">FACTURE N° {invoice.number}</h2>
@@ -33,15 +32,15 @@ export function InvoicePaper({ invoice, issuerCity }: { invoice: Invoice; issuer
 <span>{issuerCity || "Ville non renseignée"}, le {formatDate(invoice.issueDate)}</span>
 </div>
 <div className="m-0 grid gap-3">
-<span>SUIVI PAR : {invoice.followedBy || "—"}</span>
+<span>SUIVI PAR : {invoice.followedBy}</span>
 <span>POUR : {invoice.purpose || "PRESTATION DE SERVICE"}</span>
 {invoice.purchaseOrderNumber ? <span>BON DE COMMANDE : {invoice.purchaseOrderNumber}</span> : null}
 </div>
 </div>
-<table className="w-full table-fixed border-collapse text-left [&_th]:border [&_th]:border-[#d2d2d2] [&_th]:bg-[#0c4d74] [&_th]:px-2 [&_th]:py-2.5 [&_th]:text-center [&_th]:text-[10px] [&_th]:font-normal [&_th]:text-white [&_th]:uppercase [&_th:nth-child(1)]:w-[14%] [&_th:nth-child(2)]:w-[30%] [&_th:nth-child(3)]:w-[8%] [&_th:nth-child(4)]:w-[17%] [&_th:nth-child(5)]:w-[10%] [&_th:nth-child(6)]:w-[21%] [&_td]:h-20 [&_td]:border [&_td]:border-[#d2d2d2] [&_td]:px-2 [&_td]:py-2.5 [&_td]:text-[10px] [&_td]:leading-[1.35] [&_td]:align-top">
+<table className="w-full table-fixed border-collapse text-left [&_th]:border [&_th]:border-[#d2d2d2] [&_th]:bg-[#0c4d74] [&_th]:px-2 [&_th]:py-2.5 [&_th]:text-center [&_th]:text-[10px] [&_th]:font-normal [&_th]:text-white [&_th]:uppercase [&_th:nth-child(1)]:w-[16%] [&_th:nth-child(2)]:w-[38%] [&_th:nth-child(3)]:w-[10%] [&_th:nth-child(4)]:w-[18%] [&_th:nth-child(5)]:w-[18%] [&_td]:h-20 [&_td]:border [&_td]:border-[#d2d2d2] [&_td]:px-2 [&_td]:py-2.5 [&_td]:text-[10px] [&_td]:leading-[1.35] [&_td]:align-top">
 <thead>
 <tr>
-<th>Période</th><th>Description</th><th>Qté</th><th>PU HT</th><th>TVA</th><th>Total HT</th>
+<th>Période</th><th>Description</th><th>Qté</th><th>Prix unitaire</th><th>Total</th>
 </tr>
 </thead>
 <tbody>{invoice.lines.map((l, n) => <tr key={n}>
@@ -49,7 +48,6 @@ export function InvoicePaper({ invoice, issuerCity }: { invoice: Invoice; issuer
 <td>{l.description}</td>
 <td>{l.quantity}</td>
 <td>{money(l.unitPrice, invoice.currency)}</td>
-<td>{l.taxRate} %</td>
 <td>{money(l.quantity * l.unitPrice, invoice.currency)}</td>
 </tr>)}</tbody>
 </table>
@@ -59,21 +57,8 @@ export function InvoicePaper({ invoice, issuerCity }: { invoice: Invoice; issuer
 <p>{invoice.bankDetails || DEFAULT_COMPANY.bankDetails}</p>
 </div>
 <div className="m-0 w-full [&>div]:flex [&>div]:min-h-8 [&>div]:justify-between [&>div]:border [&>div]:border-b-0 [&>div]:border-[#d2d2d2] [&>div]:px-2.5 [&>div]:py-2 [&>div]:text-xs [&>div]:uppercase [&>div:last-child]:border-b">
-<div>
-<span>Sous-total HT</span>
-<strong>{money(subtotal(invoice), invoice.currency)}</strong>
-</div>
-<div>
-<span>Total TVA</span>
-<strong>{money(total(invoice) - subtotal(invoice), invoice.currency)}</strong>
-</div>
-{taxBreakdown(invoice).map(([rate, amounts]) => <div className="text-[10px]! normal-case!" key={rate}><span>Base {rate} % : {money(amounts.taxable, invoice.currency)}</span><strong>TVA : {money(amounts.tax, invoice.currency)}</strong></div>)}
-<div>
-<span>Autres coûts</span>
-<strong>{money(0, invoice.currency)}</strong>
-</div>
 <div className="text-sm! text-[#001B48] [&_strong]:text-[#001B48]">
-<span>Total TTC</span>
+<span>Total</span>
 <strong>{money(total(invoice), invoice.currency)}</strong>
 </div>
 <div className="text-[11px]!">

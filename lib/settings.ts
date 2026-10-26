@@ -25,6 +25,7 @@ export function settingsFromRow(row: SettingsRow | null): CompanySettings {
   // Accounts created before the settings screen only have the combined « issuer_details » column.
   const [legacyEmail = "", legacyPhone = ""] = (row?.issuer_details || "").split("\n");
   return {
+    accountName: text(invoice.accountName) || DEFAULT_COMPANY.accountName,
     name: text(row?.issuer) || DEFAULT_COMPANY.name,
     address: text(row?.issuer_address) || DEFAULT_COMPANY.address,
     email: text(row?.email) || text(legacyEmail) || DEFAULT_COMPANY.email,
@@ -52,7 +53,7 @@ export function settingsToRow(settings: CompanySettings, current: SettingsRow | 
     phone: settings.phone || null,
     siret: settings.siret || null,
     vat_number: settings.vatNumber || null,
-    invoice_template: { ...(current?.invoice_template || {}), bankDetails: settings.bankDetails, legalMentions: settings.legalMentions, footer: settings.footer },
+    invoice_template: { ...(current?.invoice_template || {}), accountName: settings.accountName, bankDetails: settings.bankDetails, legalMentions: settings.legalMentions, footer: settings.footer },
     letter_template: { ...(current?.letter_template || {}), city: settings.letterCity },
   };
 }

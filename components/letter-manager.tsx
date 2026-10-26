@@ -6,6 +6,7 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ClientRecord } from "@/components/client-manager";
+import { InlineClientForm, blankClient, validateClientDraft, type ClientDraft } from "@/components/inline-client-form";
 import { DatePicker } from "@/components/date-picker";
 import { ErrorBanner } from "@/components/error-banner";
 import { LetterEditor } from "@/components/letter-editor";
@@ -115,6 +116,15 @@ function LetterPaper({ letter, company }: { letter: Letter; company: CompanySett
 }
 
 export function LetterManager({ clients, company, error, onError }: { clients: ClientRecord[]; company: CompanySettings; error: string; onError: (message: string) => void }) {
+  const [newClient, setNewClient] = useState(false);
+  const [clientDraft, setClientDraft] = useState<ClientDraft>(blankClient);
+  const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
+  const [createdClients, setCreatedClients] = useState<ClientRecord[]>([]);
+  const availableClients = [...clients, ...createdClients.filter(client => !clients.some(item => item.id === client.id))];
+  function clientField<K extends keyof ClientDraft>(key: K, value: ClientDraft[K]) {
+    setClientDraft(current => ({ ...current, [key]: value }));
+    setClientErrors({});
+  }
   const [letters, setLetters] = useState<Letter[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -149,12 +159,15 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
 
   function openEditor(letter: Letter) {
     onError("");
+    setNewClient(false);
+    setClientErrors({});
     setEditor(letter);
   }
 
   function duplicate(letter: Letter) {
     onError("");
     setPreview(null);
+    setNewClient(false);
     setEditor({
       ...letter,
       id: "",
@@ -170,7 +183,10 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
   }
 
   function selectClient(id: string) {
-    const client = clients.find((item) => item.id === id);
+    setNewClient(id === "__new__");
+    setClientErrors({});
+    if (id === "__new__") { setClientDraft(blankClient()); return; }
+    const client = availableClients.find((item) => item.id === id);
     setEditor((current) => current ? {
       ...current,
       clientId: client?.id || null,
@@ -185,13 +201,32 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
       onError("Renseignez l’objet du courrier.");
       return;
     }
+    if (newClient) {
+      const errors = validateClientDraft(clientDraft);
+      setClientErrors(errors);
+      if (Object.keys(errors).length) return;
+    }
     setSaving(true);
     onError("");
     try {
+      let letter = editor;
+      if (newClient) {
+        const clientResponse = await apiFetch("/api/clients", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...clientDraft, siret: clientDraft.type === "entreprise" ? clientDraft.siret : "", vatNumber: clientDraft.type === "entreprise" ? clientDraft.vatNumber : "" }),
+        });
+        const data = await clientResponse.json();
+        if (!clientResponse.ok) throw new Error(data.error || "Enregistrement du client impossible.");
+        const created = data.client as ClientRecord;
+        setCreatedClients(current => [...current, created]);
+        letter = { ...editor, clientId: created.id, recipient: clientName(created), recipientAddress: clientAddress(created) };
+        setEditor(letter);
+        setNewClient(false);
+      }
       const response = await apiFetch("/api/letters", {
         method: editor.id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editor),
+        body: JSON.stringify(letter),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Enregistrement impossible.");
@@ -311,7 +346,8 @@ export function LetterManager({ clients, company, error, onError }: { clients: C
               <Field className="lg:col-span-2"><FieldLabel htmlFor="letter-subject">Objet</FieldLabel><Input id="letter-subject" value={editor.subject} onChange={(event) => field("subject", event.target.value)} placeholder="Objet du courrier"/></Field>
               <Field><FieldLabel htmlFor="letter-status">Statut</FieldLabel><select id="letter-status" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={editor.status} onChange={(event) => field("status", event.target.value as LetterStatus)}><option value="brouillon">Brouillon</option><option value="finalisé">Finalisé</option></select></Field>
               <Field><FieldLabel htmlFor="letter-date">Date</FieldLabel><DatePicker ariaLabel="Date du courrier" value={editor.date} onChange={(value) => field("date", value)}/></Field>
-              <Field><FieldLabel htmlFor="letter-client">Client associé</FieldLabel><select id="letter-client" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={editor.clientId || ""} onChange={(event) => selectClient(event.target.value)}><option value="">Aucun client</option>{clients.map((client) => <option key={client.id} value={client.id}>{clientName(client)}</option>)}</select></Field>
+              <Field><FieldLabel htmlFor="letter-client">Client associé</FieldLabel><select id="letter-client" className="h-9 rounded-lg border bg-background px-2.5 text-sm outline-ring" value={newClient ? "__new__" : editor.clientId || ""} onChange={(event) => selectClient(event.target.value)}><option value="">Aucun client</option><option value="__new__">+ Ajouter un nouveau client</option>{availableClients.map((client) => <option key={client.id} value={client.id}>{clientName(client)}</option>)}</select></Field>
+              {newClient ? <div className="col-span-full"><InlineClientForm clientDraft={clientDraft} clientField={clientField} fieldErrors={clientErrors}/></div> : null}
               <Field><FieldLabel htmlFor="letter-recipient">Destinataire</FieldLabel><Input id="letter-recipient" value={editor.recipient} onChange={(event) => field("recipient", event.target.value)}/></Field>
               <Field><FieldLabel htmlFor="letter-reference">Référence</FieldLabel><Input id="letter-reference" value={editor.reference} onChange={(event) => field("reference", event.target.value)} placeholder="Optionnelle"/></Field>
               <Field className="lg:col-span-2"><FieldLabel htmlFor="letter-address">Adresse du destinataire</FieldLabel><Textarea id="letter-address" rows={3} value={editor.recipientAddress} onChange={(event) => field("recipientAddress", event.target.value)} placeholder="Une ligne par élément d’adresse"/></Field>
