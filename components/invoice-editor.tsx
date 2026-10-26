@@ -9,16 +9,10 @@ import { clientAddress, clientName } from "@/lib/clients";
 import { apiFetch } from "@/lib/http";
 import { blankLine, type Invoice, type InvoiceLine, money, total } from "@/lib/invoices";
 import { type InvoiceFieldErrors, validateInvoice } from "@/lib/invoice-validation";
-import { isValidSiret } from "@/lib/siret";
+import { InlineClientForm, blankClient, clientDraftName, clientDraftAddress, validateClientDraft, type ClientDraft } from "@/components/inline-client-form";
 
-type ClientDraft = { type: "entreprise" | "particulier"; companyName: string; firstName: string; lastName: string; email: string; phone: string; addressLine1: string; addressLine2: string; postalCode: string; city: string; country: string; siret: string; vatNumber: string };
-type AddressDraft = Pick<ClientDraft, "addressLine1" | "addressLine2" | "postalCode" | "city" | "country">;
 const NEW_CLIENT = "__new__";
 const LEGACY_CLIENT = "__legacy__";
-const blankClient = (): ClientDraft => ({ type: "entreprise", companyName: "", firstName: "", lastName: "", email: "", phone: "", addressLine1: "", addressLine2: "", postalCode: "", city: "", country: "France", siret: "", vatNumber: "" });
-const clientDraftName = (client: ClientDraft) => client.type === "entreprise" ? client.companyName.trim() : [client.firstName, client.lastName].map(value => value.trim()).filter(Boolean).join(" ");
-const serializeAddress = (address: AddressDraft) => [address.addressLine1, address.addressLine2, [address.postalCode, address.city].filter(Boolean).join(" "), address.country].map(value => value.trim()).filter(Boolean).join("\n");
-const clientDraftAddress = (client: ClientDraft) => serializeAddress(client);
 function ValidationError({ message }: { message?: string }) { return message ? <span role="alert" className="text-sm font-normal text-destructive">{message}</span> : null; }
 const tw = {
   primary: "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-transparent bg-primary px-4 py-2.5 font-semibold whitespace-nowrap text-primary-foreground shadow-sm hover:bg-primary/90",
@@ -53,12 +47,12 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
   function line(index: number, key: keyof InvoiceLine, value: string | number) { clearError(`lines.${index}.${String(key)}`); setEditor(p => ({ ...p, lines: p.lines.map((l, n) => n === index ? { ...l, [key]: value } : l) })); }
   async function save() {
     const draftName = clientDraftName(clientDraft);
-    const candidate = clientSelection === NEW_CLIENT ? { ...editor, client: draftName, clientType: clientDraft.type, clientAddress: clientDraftAddress(clientDraft), clientEmail: clientDraft.email, clientSiret: clientDraft.siret, clientVatNumber: clientDraft.vatNumber } : editor;
+    const candidate = clientSelection === NEW_CLIENT ? { ...editor, client: draftName, clientType: clientDraft.type, clientAddress: clientDraftAddress(clientDraft), clientEmail: clientDraft.email, clientSiret: clientDraft.type === "entreprise" ? clientDraft.siret : "", clientVatNumber: clientDraft.type === "entreprise" ? clientDraft.vatNumber : "" } : editor;
     const errors = validateInvoice(candidate);
     if (clientSelection === NEW_CLIENT) {
       if (!draftName) errors[clientDraft.type === "entreprise" ? "clientDraft.companyName" : "clientDraft.firstName"] = clientDraft.type === "entreprise" ? "La raison sociale est requise." : "Renseignez au moins le prénom ou le nom.";
       if (clientDraft.email && !/^\S+@\S+\.\S+$/.test(clientDraft.email)) errors["clientDraft.email"] = "Saisissez une adresse e-mail valide.";
-      if (clientDraft.siret && !isValidSiret(clientDraft.siret)) errors["clientDraft.siret"] = "Le SIRET doit comporter 14 chiffres et être valide.";
+      Object.assign(errors, validateClientDraft(clientDraft));
       if (errors.clientAddress) errors["clientDraft.addressLine1"] = errors.clientAddress;
       if (errors.clientEmail) errors["clientDraft.email"] = errors.clientEmail;
       delete errors.client;
@@ -71,7 +65,7 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
     if (Object.keys(errors).length) { onError(""); return; }
 
     setSaving(true); onError("");
-    try { let invoice = candidate; if (clientSelection === NEW_CLIENT) { const clientResponse = await apiFetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(clientDraft) }); const clientData = await clientResponse.json(); if (!clientResponse.ok) throw Error(clientData.error || "Enregistrement du client impossible."); const created = clientData.client as ClientRecord; invoice = { ...candidate, clientId: created.id, client: clientName(created), clientType: created.type, clientAddress: clientAddress(created), clientEmail: created.email || "", clientSiret: created.siret || "", clientVatNumber: created.vat_number || "" }; setEditor(invoice); setClientSelection(created.id); } const r = await apiFetch("/api/invoices", { method: invoice.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(invoice) }); const d = await r.json(); if (!r.ok) { if (d.fieldErrors) { setFieldErrors(d.fieldErrors); return; } throw Error(d.error || "Enregistrement impossible."); } await onSaved(); } catch (e) { onError(e instanceof Error ? e.message : "Enregistrement impossible."); } finally { setSaving(false); }
+    try { let invoice = candidate; if (clientSelection === NEW_CLIENT) { const clientResponse = await apiFetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...clientDraft, siret: candidate.clientSiret, vatNumber: candidate.clientVatNumber }) }); const clientData = await clientResponse.json(); if (!clientResponse.ok) throw Error(clientData.error || "Enregistrement du client impossible."); const created = clientData.client as ClientRecord; invoice = { ...candidate, clientId: created.id, client: clientName(created), clientType: created.type, clientAddress: clientAddress(created), clientEmail: created.email || "", clientSiret: created.siret || "", clientVatNumber: created.vat_number || "" }; setEditor(invoice); setClientSelection(created.id); } const r = await apiFetch("/api/invoices", { method: invoice.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(invoice) }); const d = await r.json(); if (!r.ok) { if (d.fieldErrors) { setFieldErrors(d.fieldErrors); return; } throw Error(d.error || "Enregistrement impossible."); } await onSaved(); } catch (e) { onError(e instanceof Error ? e.message : "Enregistrement impossible."); } finally { setSaving(false); }
   }
 
   return <>
@@ -108,18 +102,7 @@ export function InvoiceEditor({ initial, clients, error, onError, onCancel, onSa
 </select><ValidationError message={fieldErrors.client}/>
 </label>
 {clientSelection === NEW_CLIENT ? <div className="mb-4 rounded-lg border bg-muted/30 p-4">
-<div className={tw.formGrid}>
-<label>Type de client<select value={clientDraft.type} onChange={e => clientField("type", e.target.value as ClientDraft["type"])}><option value="entreprise">Entreprise</option><option value="particulier">Particulier</option></select></label>
-{clientDraft.type === "entreprise" ? <label>Raison sociale<input aria-invalid={Boolean(fieldErrors["clientDraft.companyName"]) || undefined} value={clientDraft.companyName} onChange={e => clientField("companyName", e.target.value)} placeholder="Nom de l’entreprise"/><ValidationError message={fieldErrors["clientDraft.companyName"]}/></label> : <><label>Prénom<input aria-invalid={Boolean(fieldErrors["clientDraft.firstName"]) || undefined} value={clientDraft.firstName} onChange={e => clientField("firstName", e.target.value)} placeholder="Prénom"/><ValidationError message={fieldErrors["clientDraft.firstName"]}/></label><label>Nom<input aria-invalid={Boolean(fieldErrors["clientDraft.lastName"]) || undefined} value={clientDraft.lastName} onChange={e => clientField("lastName", e.target.value)} placeholder="Nom"/><ValidationError message={fieldErrors["clientDraft.lastName"]}/></label></>}
-<label>Adresse<input aria-invalid={Boolean(fieldErrors["clientDraft.addressLine1"]) || undefined} value={clientDraft.addressLine1} onChange={e => clientField("addressLine1", e.target.value)} placeholder="Numéro et voie"/><ValidationError message={fieldErrors["clientDraft.addressLine1"]}/></label>
-<label>Complément d’adresse<input value={clientDraft.addressLine2} onChange={e => clientField("addressLine2", e.target.value)} placeholder="Bâtiment, étage…"/></label>
-<label>Code postal<input value={clientDraft.postalCode} onChange={e => clientField("postalCode", e.target.value)} placeholder="69000"/></label>
-<label>Ville<input value={clientDraft.city} onChange={e => clientField("city", e.target.value)} placeholder="Lyon"/></label>
-<label>Pays<input value={clientDraft.country} onChange={e => clientField("country", e.target.value)} placeholder="France"/></label>
-<label>E-mail<input aria-invalid={Boolean(fieldErrors["clientDraft.email"]) || undefined} type="email" value={clientDraft.email} onChange={e => clientField("email", e.target.value)} placeholder="client@exemple.fr"/><ValidationError message={fieldErrors["clientDraft.email"]}/></label>
-<label>Téléphone<input type="tel" value={clientDraft.phone} onChange={e => clientField("phone", e.target.value)} placeholder="+33…"/></label>
-{clientDraft.type === "entreprise" && <label>SIRET<input aria-invalid={Boolean(fieldErrors["clientDraft.siret"]) || undefined} inputMode="numeric" maxLength={14} value={clientDraft.siret} onChange={e => clientField("siret", e.target.value.replace(/\D/g, ""))} placeholder="14 chiffres"/><ValidationError message={fieldErrors["clientDraft.siret"]}/></label>}
-</div>
+<InlineClientForm clientDraft={clientDraft} clientField={clientField} fieldErrors={fieldErrors}/>
 </div> : <div className="mb-4 grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 text-[13px] text-muted-foreground [&_span]:whitespace-pre-line [&_strong]:text-foreground"><strong>{editor.client}</strong><span>{editor.clientAddress || "Adresse non renseignée"}</span><ValidationError message={fieldErrors.clientAddress}/><span>{editor.clientEmail || "E-mail non renseigné"}</span><ValidationError message={fieldErrors.clientEmail}/>{editor.clientSiret ? <span>SIRET : {editor.clientSiret}</span> : null}<ValidationError message={fieldErrors.clientSiret}/></div>}
 <div className={tw.formGrid}>
 <label>Suivi par *<input required aria-required="true" aria-invalid={Boolean(fieldErrors.followedBy) || undefined} value={editor.followedBy || ""} onChange={e => field("followedBy", e.target.value)} placeholder="Nom du contact"/><ValidationError message={fieldErrors.followedBy}/>
