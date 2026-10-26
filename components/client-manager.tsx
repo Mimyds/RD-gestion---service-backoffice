@@ -1,7 +1,6 @@
 "use client"
 
 import { type ReactNode, useMemo, useState } from "react"
-import { REGEXP_ONLY_DIGITS } from "input-otp"
 import { Building2, Mail, MapPin, Pencil, Phone, Plus, Search, StickyNote, Trash2, UserRound, UsersRound } from "lucide-react"
 
 import { ErrorBanner } from "@/components/error-banner"
@@ -9,11 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp"
+import { LegalNumberInput } from "@/components/legal-number-input";
 import { Textarea } from "@/components/ui/textarea"
 import { clientAddress } from "@/lib/clients"
 import { apiFetch } from "@/lib/http"
-import { isValidSiret, siretDigits } from "@/lib/siret"
+import { isValidSiret } from "@/lib/siret"
 import { frenchVatDigits, isValidFrenchVatNumber, normalizeFrenchVatNumber } from "@/lib/vat-number"
 
 export type ClientRecord = {
@@ -104,8 +103,6 @@ function DetailRow({ icon, label, children }: { icon: ReactNode; label: string; 
 }
 
 const missing = <span className="text-muted-foreground">Non renseigné</span>
-const siretGroups = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11, 12, 13]]
-const vatGroups = [[0, 1], [2, 3, 4], [5, 6, 7], [8, 9, 10]]
 
 export function ClientManager({
   clients,
@@ -317,49 +314,12 @@ export function ClientManager({
               <div className="grid gap-4">
                 <Field data-invalid={siretInvalid || undefined}>
                   <FieldLabel htmlFor="client-siret">SIRET</FieldLabel>
-                  <InputOTP
-                    id="client-siret"
-                    aria-label="SIRET : SIREN à 9 chiffres suivi du NIC à 5 chiffres"
-                    aria-invalid={siretInvalid || undefined}
-                    containerClassName="flex-wrap"
-                    maxLength={14}
-                    pasteTransformer={siretDigits}
-                    pattern={REGEXP_ONLY_DIGITS}
-                    value={editor.siret}
-                    onChange={(value) => setField("siret", value)}
-                  >
-                    {siretGroups.map((group, groupIndex) => <span className="contents" key={group[0]}>
-                      {groupIndex > 0 ? <InputOTPSeparator /> : null}
-                      <InputOTPGroup>
-                        {group.map((index) => <InputOTPSlot aria-invalid={siretInvalid || undefined} index={index} key={index} />)}
-                      </InputOTPGroup>
-                    </span>)}
-                  </InputOTP>
+                  <LegalNumberInput id="client-siret" kind="siret" aria-invalid={siretInvalid || undefined} value={editor.siret} onValueChange={value => setField("siret", value)}/>
                   {siretInvalid ? <FieldError>{siretError}</FieldError> : <FieldDescription>SIREN à 9 chiffres, puis NIC à 5 chiffres.</FieldDescription>}
                 </Field>
                 <Field data-invalid={vatInvalid || undefined}>
                   <FieldLabel htmlFor="vat-number">N° de TVA intracommunautaire</FieldLabel>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="grid h-9 min-w-12 place-items-center rounded-md border bg-muted px-3 text-sm font-semibold" aria-hidden="true">FR</span>
-                    <InputOTP
-                      id="vat-number"
-                      aria-label="11 chiffres du numéro de TVA intracommunautaire"
-                      aria-invalid={vatInvalid || undefined}
-                      containerClassName="flex-wrap"
-                      maxLength={11}
-                      pasteTransformer={frenchVatDigits}
-                      pattern={REGEXP_ONLY_DIGITS}
-                      value={vatDigits}
-                      onChange={(value) => setField("vatNumber", value ? `FR${value}` : "")}
-                    >
-                      {vatGroups.map((group, groupIndex) => <span className="contents" key={group[0]}>
-                        {groupIndex > 0 ? <InputOTPSeparator /> : null}
-                        <InputOTPGroup>
-                          {group.map((index) => <InputOTPSlot aria-invalid={vatInvalid || undefined} index={index} key={index} />)}
-                        </InputOTPGroup>
-                      </span>)}
-                    </InputOTP>
-                  </div>
+                  <LegalNumberInput id="vat-number" kind="vat" aria-invalid={vatInvalid || undefined} value={editor.vatNumber} onValueChange={value => setField("vatNumber", value)}/>
                   {vatInvalid ? <FieldError>{vatError}</FieldError> : <FieldDescription>FR, clé de contrôle à 2 chiffres, puis SIREN à 9 chiffres.</FieldDescription>}
                 </Field>
               </div>

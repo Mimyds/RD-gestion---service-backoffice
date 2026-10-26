@@ -7,7 +7,7 @@ import { isValidFrenchVatNumber, normalizeFrenchVatNumber } from "@/lib/vat-numb
 
 export const dynamic = "force-dynamic";
 
-const required: (keyof CompanySettings)[] = ["name", "address"];
+const required: (keyof CompanySettings)[] = ["accountName", "name", "address"];
 
 function parse(input: unknown): CompanySettings | string {
   if (!input || typeof input !== "object" || Array.isArray(input)) return "Données invalides.";
@@ -17,7 +17,7 @@ function parse(input: unknown): CompanySettings | string {
     values[key] = typeof value === "string" ? value.trim() : "";
     if (values[key].length > SETTINGS_LIMITS[key]) return "Un des champs dépasse la longueur autorisée.";
   }
-  if (required.some((key) => !values[key])) return "La raison sociale et l’adresse sont requises.";
+  if (required.some((key) => !values[key])) return "Le nom du compte, la raison sociale et l’adresse sont requis.";
   if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) return "L’adresse e-mail n’est pas valide.";
   if (values.siret && !isValidSiret(values.siret)) return "Le numéro SIRET de l’entreprise n’est pas valide.";
   if (values.vatNumber && !isValidFrenchVatNumber(values.vatNumber)) return "Le numéro de TVA de l’entreprise n’est pas valide.";

@@ -1,5 +1,6 @@
 // Issuing company settings, edited by the manager in « Réglages » and stored in public.users.
 export type CompanySettings = {
+  accountName: string;
   name: string;
   address: string;
   email: string;
@@ -13,6 +14,7 @@ export type CompanySettings = {
 };
 
 export const SETTINGS_LIMITS: Record<keyof CompanySettings, number> = {
+  accountName: 200,
   name: 200,
   address: 500,
   email: 200,
@@ -27,6 +29,7 @@ export const SETTINGS_LIMITS: Record<keyof CompanySettings, number> = {
 
 // Fallback values used until the account's settings are loaded or when a field is empty in the database.
 export const DEFAULT_COMPANY: CompanySettings = {
+  accountName: "REMY DESROSES",
   name: "RD GESTION & SERVICES",
   address: "9 impasse Gizeh - 69220 BELLEVILLE EN BEAUJOLAIS",
   email: "remy.desroses@gmail.com",
